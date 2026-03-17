@@ -17,5 +17,18 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'signup', component: SignupComponent },
   { path: 'career', component: CareerComponent },
+  { path: 'hr-panel', component: HrPanelComponent },
+  {
+    path: 'candidate',
+    component: CandidateComponent,
+    children: [
+      { path: '', redirectTo: 'apply-jobs', pathMatch: 'full' },
+      { path: 'resume-upload', component: ResumeUploadComponent },
+      { path: 'apply-jobs', component: ApplyJobsComponent },
+      { path: 'candidate-data', component: CandidateDataComponent },
+      { path: 'applied-jobs', component: AppliedJobsComponent },
+      { path: 'selected-jobs', component: SelectedJobsComponent }
+    ]
+  },
   { path: '**', redirectTo: '' }
 ];
