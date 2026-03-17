@@ -3,6 +3,7 @@ import { LandingComponent } from './pages/landing/landing.component';
 import { LoginComponent } from './pages/login/login.component';
 import { SignupComponent } from './pages/signup/signup.component';
 import { CareerComponent } from './pages/career/career.component';
+import { HrPanelComponent } from './pages/hr-panel/hr-panel.component';
 import { CandidateComponent } from './pages/candidate/candidate.component';
 import { ResumeUploadComponent } from './pages/candidate/resume-upload/resume-upload.component';
 import { ApplyJobsComponent } from './pages/candidate/apply-jobs/apply-jobs.component';
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'signup', component: SignupComponent },
   { path: 'career', component: CareerComponent },
+  { path: 'hr-panel', component: HrPanelComponent },
   {
     path: 'candidate',
     component: CandidateComponent,
