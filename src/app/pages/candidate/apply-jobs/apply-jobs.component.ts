@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HeroService } from '../../../hero.service';
 
 @Component({
   selector: 'app-apply-jobs',
@@ -9,43 +10,70 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './apply-jobs.component.html',
   styleUrls: ['./apply-jobs.component.css']
 })
-export class ApplyJobsComponent {
+export class ApplyJobsComponent implements OnInit {
   searchQuery = '';
+  jobs: any[] = [];
+  filteredJobs: any[] = [];
 
-  jobs = [
-    {
-      id: 1, title: 'Senior Frontend Developer', company: 'TechCorp Solutions', location: 'Bangalore, India',
-      type: 'Full-time', department: 'Engineering', salary: '₹18-25 LPA', posted: '2 days ago',
-      description: 'Build modern web applications using Angular, React, and TypeScript with a focus on performance and UX.'
-    },
-    {
-      id: 2, title: 'Backend Engineer', company: 'ScaleUp Inc', location: 'Remote',
-      type: 'Full-time', department: 'Engineering', salary: '₹15-22 LPA', posted: '5 days ago',
-      description: 'Design and implement scalable APIs and microservices using Node.js and Python.'
-    },
-    {
-      id: 3, title: 'UI/UX Designer', company: 'InnovateCo', location: 'Mumbai, India',
-      type: 'Full-time', department: 'Design', salary: '₹12-18 LPA', posted: '1 week ago',
-      description: 'Create intuitive and beautiful user experiences for web and mobile applications.'
-    },
-    {
-      id: 4, title: 'DevOps Engineer', company: 'CloudFirst Ltd', location: 'Hyderabad, India',
-      type: 'Contract', department: 'Infrastructure', salary: '₹20-28 LPA', posted: '3 days ago',
-      description: 'Manage CI/CD pipelines, cloud infrastructure, and container orchestration with Kubernetes.'
-    },
-    {
-      id: 5, title: 'Data Analyst', company: 'DataMinds', location: 'Pune, India',
-      type: 'Full-time', department: 'Analytics', salary: '₹10-15 LPA', posted: '1 day ago',
-      description: 'Analyze large datasets to derive insights and support business decision-making.'
-    },
-    {
-      id: 6, title: 'Product Manager', company: 'TechCorp Solutions', location: 'Delhi, India',
-      type: 'Full-time', department: 'Product', salary: '₹22-30 LPA', posted: '4 days ago',
-      description: 'Drive product strategy, roadmap, and execution for enterprise SaaS products.'
+  constructor(private heroService: HeroService) {}
+
+  ngOnInit(): void {
+    this.loadJobs();
+  }
+
+  loadJobs(): void {
+    this.heroService.showAllJobRequisition()
+      .then(resp => {
+        // Attempt to find the array of tuples or job requisitions
+        let rawData = this.heroService.xmltojson(resp, 'tuple');
+        if (!rawData) {
+          rawData = this.heroService.xmltojson(resp, 'job_requisition');
+        }
+
+        if (rawData) {
+          const dataArray = Array.isArray(rawData) ? rawData : [rawData];
+          this.jobs = dataArray.map((item: any) => {
+            // Data could be in item.old.job_requisition (standard Cordys tuple)
+            // or directly in item if xmltojson found job_requisition array
+            const j = item.old?.job_requisition || item.job_requisition || item;
+            
+            return {
+              id: j.jr_id,
+              title: j.job_title,
+              company: 'RMS',
+              location: j.location,
+              type: 'Full-time',
+              department: j.department,
+              salary: j.salary_range || 'Competitive',
+              posted: this.calculateTimeAgo(j.created_at),
+              description: j.job_description
+            };
+          }).filter((j: any) => j.id); // Filter out any empty mappings
+
+          this.filteredJobs = [...this.jobs];
+        }
+      })
+      .catch(err => {
+        console.error('Error loading jobs', err);
+      });
+  }
+
+  calculateTimeAgo(dateStr: string): string {
+    if (!dateStr) return 'Just now';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      return date.toLocaleDateString();
+    } catch {
+      return 'Recently';
     }
-  ];
-
-  filteredJobs = [...this.jobs];
+  }
 
   filterJobs(): void {
     const q = this.searchQuery.toLowerCase();
@@ -57,8 +85,9 @@ export class ApplyJobsComponent {
     );
   }
 
-  applyForJob(jobId: number): void {
+  applyForJob(jobId: string): void {
     console.log('Applied for job:', jobId);
-    // TODO: Integrate with backend
+    // TODO: Integrate with backend to apply
+    alert(`Applying for Job ID: ${jobId}`);
   }
 }

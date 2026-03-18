@@ -53,14 +53,13 @@
             <div class="flex items-center gap-3 py-3" [ngClass]="sidebarCollapsed ? 'justify-center px-0' : 'px-4'">
                 <div
                     class="w-9 h-9 shrink-0 rounded-full bg-cyan-400/20 flex items-center justify-center text-sm font-bold text-cyan-300">
-                    C
+                    {{ userInitials }}
                 </div>
                 <div *ngIf="!sidebarCollapsed" class="flex-1 min-w-0">
-                    <div class="text-sm font-semibold text-white truncate">Candidate</div>
-                    <div class="text-xs text-white/50 truncate">candidate&#64;example.com</div>
+                    <div class="text-sm font-semibold text-white truncate">{{ displayName }}</div>
                 </div>
             </div>
-            <a routerLink="/login"
+            <a (click)="logout()" style="cursor: pointer;"
                 class="flex items-center gap-3 py-3 rounded-xl text-sm font-medium text-white/60 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 mt-1"
                 [ngClass]="sidebarCollapsed ? 'justify-center px-0' : 'px-4'"
                 [title]="sidebarCollapsed ? 'Log Out' : ''">
