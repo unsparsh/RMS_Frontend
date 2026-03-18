@@ -89,6 +89,18 @@
                 </div>
             </ng-container>
 
+            <!-- Error message -->
+            <div *ngIf="errorMsg"
+                class="mb-4 p-3 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-xl">
+                {{ errorMsg }}
+            </div>
+
+            <!-- Error message -->
+            <div *ngIf="errorMsg"
+                class="mb-4 p-3 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-xl">
+                {{ errorMsg }}
+            </div>
+
             <!-- Login Form -->
             <form (ngSubmit)="onLogin()" class="space-y-5">
                 <!-- Email (Candidate Only) -->
@@ -170,9 +182,10 @@
                 </div> -->
 
                 <!-- Submit -->
-                <button type="submit" id="login-submit-btn"
-                    class="w-full py-3.5 text-sm font-semibold text-primary-foreground bg-primary rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]">
-                    Sign In
+                <button type="submit" id="login-submit-btn" [disabled]="loading"
+                    class="w-full py-3.5 text-sm font-semibold text-primary-foreground bg-primary rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2">
+                    <div *ngIf="loading" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    {{ loading ? 'Signing in...' : 'Sign In' }}
                 </button>
             </form>
         </div>

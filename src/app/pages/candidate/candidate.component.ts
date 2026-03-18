@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../auth.service';
 
 @Component({
   selector: 'app-candidate',
@@ -12,6 +13,21 @@ import { CommonModule } from '@angular/common';
 export class CandidateComponent {
   sidebarOpen = false;       // mobile slide-in
   sidebarCollapsed = false;   // desktop collapse
+
+  constructor(private auth: AuthService, private router: Router) {}
+
+  get displayName(): string {
+    return this.auth.getDisplayName() || 'Candidate';
+  }
+
+  get userInitials(): string {
+    const name = this.displayName;
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+    return parts[0].charAt(0).toUpperCase();
+  }
 
   navItems = [
     {
@@ -57,5 +73,10 @@ export class CandidateComponent {
 
   toggleCollapse(): void {
     this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  logout(): void {
+    this.auth.logout();
+    this.router.navigate(['/login']);
   }
 }
