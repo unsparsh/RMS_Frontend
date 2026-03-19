@@ -5,6 +5,9 @@ import { SignupComponent } from './pages/signup/signup.component';
 import { CareerComponent } from './pages/career/career.component';
 import { LeadershipDashboardComponent } from './pages/leadership-dashboard/leadership-dashboard.component';
 import { HrPanelComponent } from './pages/hr-panel/hr-panel.component';
+import { AdminPanelComponent } from './pages/admin-panel/admin-panel.component';
+import { AdminGuard } from './guards/admin.guard';
+import { RoleGuard } from './guards/role.guard';
 import { CandidateComponent } from './pages/candidate/candidate.component';
 import { ResumeUploadComponent } from './pages/candidate/resume-upload/resume-upload.component';
 import { ApplyJobsComponent } from './pages/candidate/apply-jobs/apply-jobs.component';
@@ -17,10 +20,13 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'signup', component: SignupComponent },
   { path: 'career', component: CareerComponent },
-  { path: 'hr-panel', component: HrPanelComponent },
+  { path: 'hr-panel', component: HrPanelComponent, canActivate: [RoleGuard], data: { roles: ['HR'] } },
+  { path: 'admin', component: AdminPanelComponent, canActivate: [AdminGuard] },
   {
     path: 'candidate',
     component: CandidateComponent,
+    canActivate: [RoleGuard],
+    data: { roles: ['Candidate', 'Employee'] },
     children: [
       { path: '', redirectTo: 'apply-jobs', pathMatch: 'full' },
       { path: 'resume-upload', component: ResumeUploadComponent },
@@ -30,6 +36,6 @@ export const routes: Routes = [
       { path: 'selected-jobs', component: SelectedJobsComponent }
     ]
   },
-  { path: 'leadership-dashboard', component: LeadershipDashboardComponent },
+  { path: 'leadership-dashboard', component: LeadershipDashboardComponent, canActivate: [RoleGuard], data: { roles: ['Leadership'] } },
   { path: '**', redirectTo: '' }
 ];
