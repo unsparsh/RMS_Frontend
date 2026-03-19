@@ -1,7 +1,9 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { HeroService } from '../../hero.service';
+import { AuthService } from '../../auth.service';
 
 @Component({
   selector: 'app-hr-panel',
@@ -32,7 +34,13 @@ export class HrPanelComponent {
   };
   isSubmittingRequisition = false;
 
-  constructor(private heroService: HeroService) {}
+  constructor(private heroService: HeroService, private auth: AuthService, private router: Router) {}
+
+  logout(): void {
+    this.auth.logout();
+    sessionStorage.clear();
+    this.router.navigate(['/login']);
+  }
 
   sidebarSections = [
     {

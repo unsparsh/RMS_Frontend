@@ -186,4 +186,48 @@ export class HeroService {
     });
   }
 
+  /**
+   * Create a user in Cordys organization with the given role.
+   */
+  createUserInOrganization(data: {
+    userName: string;
+    description: string;
+    userId: string;
+    password: string;
+    role: string;
+  }): Promise<any> {
+    const payload: any = {
+      User: {
+        UserName: {
+          '@isAnonymous': '',
+          text: data.userName
+        },
+        Description: data.description,
+        Credentials: {
+          '@allowDuplicate': 'true',
+          UserIDPassword: {
+            UserID: data.userId,
+            Password: data.password
+          }
+        },
+        Roles: {
+          Role: {
+            '@application': '',
+            text: data.role
+          }
+        }
+      }
+    };
+    return this.ajax('CreateUserInOrganization', 'http://schemas.cordys.com/UserManagement/1.0/Organization', payload);
+  }
+
+  /**
+   * Get user details including roles from Cordys.
+   */
+  getUserDetails(userId: string): Promise<any> {
+    return this.ajax('GetUserDetails', 'http://schemas.cordys.com/UserManagement/1.0/Organization', {
+      UserName: userId
+    });
+  }
+
 }

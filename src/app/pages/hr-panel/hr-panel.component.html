@@ -3,10 +3,10 @@
   <aside class="peoplify-sidebar" [class.collapsed]="isSidebarCollapsed">
     <div class="sidebar-logo">
       <div class="logo-bg-wrapper" *ngIf="!isSidebarCollapsed">
-        <img src="assets/adnate-logo.png" alt="Adnate IT Solutions" class="adnate-img-logo">
+        <img src="assets/images/adnate-logo.png" alt="Adnate IT Solutions" class="adnate-img-logo">
       </div>
       <div class="logo-bg-wrapper-small" *ngIf="isSidebarCollapsed">
-        <img src="assets/adnate-logo.png" alt="Adnate IT Solutions" class="adnate-img-logo-small">
+        <img src="assets/images/adnate-logo.png" alt="Adnate IT Solutions" class="adnate-img-logo-small">
       </div>
       <button class="hamburger-toggle" (click)="toggleSidebar()">
         <i class="fas fa-bars"></i>
@@ -42,7 +42,7 @@
             <div class="candidate-email" style="color: #94A3B8;">HR Admin</div>
           </div>
         </div>
-        <div class="logout-action" style="color: #CBD5E1;">
+        <div class="logout-action" style="color: #CBD5E1; cursor: pointer;" (click)="logout()">
           <i class="fas fa-sign-out-alt"></i>
           <span>Log Out</span>
         </div>
@@ -54,7 +54,7 @@
            <div class="candidate-initial">S</div>
            <div class="tooltip" style="left: 60px;">Sarah Lindqvist</div>
         </div>
-        <div class="logout-action menu-item-internal" style="padding:0; justify-content: center; color: #CBD5E1; background:transparent;">
+        <div class="logout-action menu-item-internal" style="padding:0; justify-content: center; color: #CBD5E1; background:transparent; cursor: pointer;" (click)="logout()">
            <i class="fas fa-sign-out-alt"></i>
            <div class="tooltip" style="left: 60px;">Log Out</div>
         </div>

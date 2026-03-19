@@ -9,9 +9,11 @@ declare var $: any;
 
 // Role to route mapping — add more roles as needed
 const ROLE_ROUTES: { [key: string]: { route: string; displayName: string } } = {
+  Admin_RMS: { route: '/admin', displayName: 'Admin' },
   Leadership_RMS: { route: '/leadership-dashboard', displayName: 'Leadership' },
   HR_RMS: { route: '/hr-panel', displayName: 'HR' },
   Candidate_RMS: { route: '/candidate', displayName: 'Candidate' },
+  Employee_RMS: { route: '/employee-dashboard', displayName: 'Employee' },
 };
 
 @Component({
@@ -57,8 +59,8 @@ export class LoginComponent {
     try {
       const resp: any = await this.heroService.ajax(
         'GetUserDetails',
-        'http://schemas.cordys.com/1.0/ldap',
-        { dn: username }
+        'http://schemas.cordys.com/UserManagement/1.0/Organization',
+        { UserName: username }
       );
 
       console.log('GetUserDetails response:', resp);
@@ -66,15 +68,33 @@ export class LoginComponent {
       // Extract roles from response
       let roles: string[] = [];
       const roleData = this.heroService.xmltojson(resp, 'Role');
+      console.log('GetUserDetails roleData:', roleData);
+
+      // Helper to extract the text content from a role object
+      const extractRoleText = (r: any): string => {
+        if (typeof r === 'string') return r;
+        if (r?.text) return r.text;
+        if (r?.['#text']) return r['#text'];
+        if (r?.['$t']) return r['$t'];
+        if (r?.Description) return r.Description;
+        // Last resort: stringify and return
+        return String(r);
+      };
 
       if (roleData) {
         if (Array.isArray(roleData)) {
-          roles = roleData.map((r: any) =>
-            typeof r === 'string' ? r : (r?.Description || r?.['#text'] || r?.text || String(r))
-          );
+          roles = roleData.map((r: any) => extractRoleText(r));
         } else {
-          roles = [typeof roleData === 'string' ? roleData : (roleData?.Description || roleData?.['#text'] || roleData?.text || String(roleData))];
+          roles = [extractRoleText(roleData)];
         }
+      }
+
+      // Fallback: if roles are empty or just [object Object], scan the full response string
+      if (roles.length === 0 || roles.every(r => r === '[object Object]')) {
+        console.warn('Role extraction via xmltojson failed. Scanning full response string...');
+        const fullStr = JSON.stringify(resp);
+        const knownRoles = Object.keys(ROLE_ROUTES);
+        roles = knownRoles.filter(role => fullStr.includes(role));
       }
 
       console.log('User roles:', roles);
@@ -88,25 +108,22 @@ export class LoginComponent {
       const roleRoute = this.getRouteForRole(roles);
 
       if (roleRoute) {
+        console.log('Role matched:', roleRoute.displayName, '→', roleRoute.route);
         sessionStorage.setItem('userRole', roleRoute.displayName);
         this.auth.setAuthenticated(true);
         this.loading = false;
         this.router.navigate([roleRoute.route]);
       } else {
-        // No matching role — fallback based on loginType
-        this.auth.setAuthenticated(true);
+        // No matching role — redirect to landing page
+        console.warn('No matching role found. User roles:', roles, '. Redirecting to /');
         this.loading = false;
-        const fallback = this.loginType === 'candidate' ? '/candidate' : '/leadership-dashboard';
-        console.warn('No matching role found. User roles:', roles, '. Falling back to', fallback);
-        this.router.navigate([fallback]);
+        this.router.navigate(['/']);
       }
     } catch (e) {
       console.error('Failed to fetch user roles:', e);
-      // Still authenticated, redirect based on loginType
-      this.auth.setAuthenticated(true);
+      // Redirect to landing page on error
       this.loading = false;
-      const fallback = this.loginType === 'candidate' ? '/candidate' : '/leadership-dashboard';
-      this.router.navigate([fallback]);
+      this.router.navigate(['/']);
     }
   }
 
