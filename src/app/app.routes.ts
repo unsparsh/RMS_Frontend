@@ -14,6 +14,7 @@ import { ApplyJobsComponent } from './pages/candidate/apply-jobs/apply-jobs.comp
 import { CandidateDataComponent } from './pages/candidate/candidate-data/candidate-data.component';
 import { AppliedJobsComponent } from './pages/candidate/applied-jobs/applied-jobs.component';
 import { SelectedJobsComponent } from './pages/candidate/selected-jobs/selected-jobs.component';
+import { EmployeeDashboardComponent } from './pages/employee-dashboard/employee-dashboard.component';
 
 export const routes: Routes = [
   { path: '', component: LandingComponent },
@@ -36,6 +37,7 @@ export const routes: Routes = [
       { path: 'selected-jobs', component: SelectedJobsComponent }
     ]
   },
-  { path: 'leadership-dashboard', component: LeadershipDashboardComponent, canActivate: [RoleGuard], data: { roles: ['Leadership'] } },
+  { path: 'leadership-dashboard', component: LeadershipDashboardComponent },
+  { path: 'employee-dashboard', component: EmployeeDashboardComponent },
   { path: '**', redirectTo: '' }
 ];
