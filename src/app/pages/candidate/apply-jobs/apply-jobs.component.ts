@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HeroService } from '../../../hero.service';
+import { AuthService } from '../../../auth.service';
+import { ToastService } from '../../../toast.service';
 
 @Component({
   selector: 'app-apply-jobs',
@@ -15,7 +17,16 @@ export class ApplyJobsComponent implements OnInit {
   jobs: any[] = [];
   filteredJobs: any[] = [];
 
-  constructor(private heroService: HeroService) {}
+  // Confirmation modal state
+  showConfirmModal = false;
+  confirmJobId = '';
+  confirmJobTitle = '';
+
+  constructor(
+    private heroService: HeroService,
+    private authService: AuthService,
+    private toast: ToastService
+  ) {}
 
   ngOnInit(): void {
     this.loadJobs();
@@ -55,6 +66,7 @@ export class ApplyJobsComponent implements OnInit {
       })
       .catch(err => {
         console.error('Error loading jobs', err);
+        this.toast.error('Failed to load job listings. Please try again.');
       });
   }
 
@@ -86,8 +98,87 @@ export class ApplyJobsComponent implements OnInit {
   }
 
   applyForJob(jobId: string): void {
-    console.log('Applied for job:', jobId);
-    // TODO: Integrate with backend to apply
-    alert(`Applying for Job ID: ${jobId}`);
+    const candidateId = this.authService.getCandidateId();
+    if (!candidateId) {
+      this.toast.error('Candidate ID not found. Please log in again.');
+      return;
+    }
+
+    // Find the job title for the confirmation modal
+    const job = this.filteredJobs.find(j => j.id === jobId);
+    this.confirmJobTitle = job?.title || 'this job';
+    this.confirmJobId = jobId;
+    this.showConfirmModal = true;
+  }
+
+  cancelApply(): void {
+    this.showConfirmModal = false;
+    this.confirmJobId = '';
+    this.confirmJobTitle = '';
+  }
+
+  confirmApply(): void {
+    this.showConfirmModal = false;
+    const candidateId = this.authService.getCandidateId();
+    const jobId = this.confirmJobId;
+    this.confirmJobId = '';
+    this.confirmJobTitle = '';
+
+    // STEP 1: CHECK FOR DUPLICATE APPLICATION
+    this.heroService.getApplicationByCandidateAndJR(candidateId, jobId)
+      .then(resp => {
+        const existingApp = this.heroService.xmltojson(resp, 'candidate_job_application');
+        
+        // STEP 2: ANALYZE RESPONSE
+        if (existingApp) {
+          // DUPLICATE EXISTS
+          const response = {
+            status: "duplicate",
+            message: "You have already applied for this job."
+          };
+          console.log(JSON.stringify(response, null, 2));
+          this.toast.warning(response.message);
+          return;
+        }
+
+        // NO DUPLICATE - STEP 3: CREATE NEW APPLICATION
+        const applicationData = {
+          candidate_id: candidateId,
+          jr_id: jobId,
+          application_status: 'APPLIED',
+          applied_at: new Date().toISOString(),
+          stage: 'Applied'
+        };
+
+        this.heroService.updateCandidateJobApplication(applicationData)
+          .then(() => {
+            // SUCCESS RESPONSE - STEP 4
+            const response = {
+              status: "success",
+              message: "Application submitted successfully."
+            };
+            console.log(JSON.stringify(response, null, 2));
+            this.toast.success(response.message);
+          })
+          .catch(err => {
+            console.error('Error applying for job:', err);
+            const response = {
+              status: "error",
+              message: "Something went wrong. Please try again later."
+            };
+            console.log(JSON.stringify(response, null, 2));
+            this.toast.error(response.message);
+          });
+      })
+      .catch(err => {
+        console.error('Error checking duplicate application:', err);
+        const response = {
+          status: "error",
+          message: "Something went wrong. Please try again later."
+        };
+        console.log(JSON.stringify(response, null, 2));
+        this.toast.error(response.message);
+      });
   }
 }
+

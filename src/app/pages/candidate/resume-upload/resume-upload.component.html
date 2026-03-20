@@ -1,23 +1,157 @@
 <div class="max-w-4xl mx-auto space-y-8">
-    <!-- Page Header -->
-    <div>
-        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">Resume Upload</h1>
-        <p class="text-muted-foreground mt-1">Upload and manage your resumes and cover letters</p>
+
+    <!-- ============================================================= -->
+    <!--  TOAST NOTIFICATION                                            -->
+    <!-- ============================================================= -->
+    <div *ngIf="showStatus"
+         class="fixed top-6 right-6 z-50 min-w-[320px] max-w-md px-5 py-4 rounded-xl shadow-2xl border backdrop-blur-sm transition-all duration-300 animate-slideIn flex items-start gap-3"
+         [ngClass]="{
+           'bg-green-50 border-green-200 text-green-800': statusType === 'success',
+           'bg-red-50 border-red-200 text-red-800':       statusType === 'error',
+           'bg-blue-50 border-blue-200 text-blue-800':    statusType === 'info'
+         }">
+        <!-- Icon -->
+        <div class="flex-shrink-0 mt-0.5">
+            <svg *ngIf="statusType === 'success'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-green-500">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <svg *ngIf="statusType === 'error'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-red-500">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <svg *ngIf="statusType === 'info'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-blue-500">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+            </svg>
+        </div>
+        <!-- Message -->
+        <p class="text-sm font-medium flex-1">{{ statusMessage }}</p>
+        <!-- Dismiss -->
+        <button (click)="dismissToast()" class="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+        </button>
     </div>
 
-    <!-- Upload Zone -->
-    <div (click)="fileInput.click()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)"
-        [ngClass]="{'border-primary bg-primary/5': isDragging}"
-        class="relative border-2 border-dashed border-border rounded-2xl p-12 text-center hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 cursor-pointer group flex flex-col items-center justify-center">
-        <input #fileInput type="file" (change)="onFileSelect($event)" multiple accept=".pdf,.doc,.docx" class="hidden" id="resume-file-input" />
+    <!-- ============================================================= -->
+    <!--  PAGE HEADER                                                   -->
+    <!-- ============================================================= -->
+    <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">Resume Upload</h1>
+        <p class="text-muted-foreground mt-1">Upload, review, and manage your resume</p>
+    </div>
 
+    <!-- ============================================================= -->
+    <!--  STEP PROGRESS INDICATOR                                       -->
+    <!-- ============================================================= -->
+    <div class="flex items-center justify-between bg-card border border-border rounded-2xl px-6 py-4">
+        <div *ngFor="let step of workflowSteps; let i = index; let last = last"
+             class="flex items-center" [class.flex-1]="!last">
+            <!-- Step circle -->
+            <div class="flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                     [ngClass]="{
+                       'bg-primary text-white shadow-lg shadow-primary/30': currentStep === i,
+                       'bg-green-500 text-white': currentStep > i,
+                       'bg-muted text-muted-foreground': currentStep < i
+                     }">
+                    <svg *ngIf="currentStep > i" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                    <span *ngIf="currentStep <= i">{{ i + 1 }}</span>
+                </div>
+                <span class="text-[10px] mt-1.5 font-semibold whitespace-nowrap"
+                      [ngClass]="{
+                        'text-primary': currentStep === i,
+                        'text-green-600': currentStep > i,
+                        'text-muted-foreground': currentStep < i
+                      }">{{ step }}</span>
+            </div>
+            <!-- Connector line -->
+            <div *ngIf="!last" class="flex-1 h-0.5 mx-2 mt-[-16px] transition-all duration-500"
+                 [ngClass]="currentStep > i ? 'bg-green-400' : 'bg-border'"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!--  CURRENT RESUME  (always visible when resume exists in DB)     -->
+    <!-- ============================================================= -->
+    <div *ngIf="resumeFileName" class="space-y-0">
+        <!-- Clickable resume card -->
+        <div (click)="toggleStoredDetails()"
+             class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gradient-to-r from-primary/5 to-transparent border border-primary/20 rounded-2xl p-5 gap-4 cursor-pointer hover:shadow-md transition-all duration-200"
+             [class.rounded-b-none]="showStoredDetails"
+             [class.border-b-0]="showStoredDetails">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-foreground">Current Active Resume</p>
+                    <p class="text-xs text-muted-foreground mt-0.5 font-mono">{{ resumeFileName }}</p>
+                    <p class="text-[10px] text-primary mt-1 font-medium">Click to {{ showStoredDetails ? 'hide' : 'view' }} parsed details</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a [href]="getResumeDownloadUrl()" target="_blank" (click)="$event.stopPropagation()"
+                   class="flex items-center gap-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Download
+                </a>
+                <!-- Chevron indicator -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                     class="w-5 h-5 text-muted-foreground transition-transform duration-300"
+                     [class.rotate-180]="showStoredDetails">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Expandable parsed details panel -->
+        <div *ngIf="showStoredDetails"
+             class="border border-primary/20 border-t-0 rounded-b-2xl bg-card overflow-hidden animate-slideIn">
+            <!-- Loading state -->
+            <div *ngIf="isLoadingStoredDetails" class="flex items-center justify-center p-8 gap-3">
+                <svg class="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-sm text-muted-foreground font-medium">Loading candidate details…</span>
+            </div>
+
+            <!-- Details grid -->
+            <div *ngIf="!isLoadingStoredDetails && storedCandidateFields.length > 0" class="p-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div *ngFor="let field of storedCandidateFields"
+                         class="flex flex-col bg-muted/20 rounded-lg px-4 py-3">
+                        <span class="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">{{ field.label }}</span>
+                        <span class="text-sm font-medium text-foreground mt-0.5">{{ field.value || '—' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No data state -->
+            <div *ngIf="!isLoadingStoredDetails && storedCandidateFields.length === 0"
+                 class="p-6 text-center text-sm text-muted-foreground">
+                No parsed details found for this candidate.
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!--  UPLOAD ZONE  (Step 1: File selection)                         -->
+    <!-- ============================================================= -->
+    <div (click)="fileInput.click()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)"
+        [ngClass]="{'border-primary bg-primary/5 scale-[1.01]': isDragging}"
+        class="relative border-2 border-dashed border-border rounded-2xl p-14 text-center hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 cursor-pointer group flex flex-col items-center justify-center">
+        <input #fileInput type="file" (change)="onFileSelect($event)" accept=".pdf,.doc,.docx" class="hidden" id="resume-file-input" />
         <div class="flex flex-col items-center gap-4">
-            <div
-                class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300 group-hover:scale-110">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" class="w-8 h-8">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            <div class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300 group-hover:scale-110">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
             </div>
             <div>
@@ -29,98 +163,175 @@
         </div>
     </div>
 
-    <!-- Uploaded Files -->
-    <div *ngIf="files.length > 0">
-        <h2 class="text-lg font-bold text-foreground mb-4">Uploaded Documents</h2>
-        <div class="space-y-3">
-            <div *ngFor="let file of files; let i = index"
-                class="flex items-center justify-between bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-primary/20 transition-all duration-200 group">
-                <div class="flex items-center gap-4">
-                    <div
-                        class="w-11 h-11 rounded-xl flex items-center justify-center text-xs font-bold"
-                        [ngClass]="file.type === 'PDF' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'">
-                        {{ file.type }}
-                    </div>
-                    <div>
-                        <p class="text-sm font-semibold text-foreground">{{ file.name }}</p>
-                        <p class="text-xs text-muted-foreground">{{ file.size }} · {{ file.date }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button
-                        class="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-200"
-                        title="Download">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                    </button>
-                    <button (click)="removeFile(i)"
-                        class="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
-                        title="Delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                        </svg>
-                    </button>
-                </div>
+    <!-- ============================================================= -->
+    <!--  SELECTED FILE CARD                                            -->
+    <!-- ============================================================= -->
+    <div *ngIf="selectedFile"
+         class="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xs font-bold"
+                 [ngClass]="selectedFileType === 'PDF' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'">
+                {{ selectedFileType }}
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-foreground">{{ selectedFileName }}</p>
+                <p class="text-xs text-muted-foreground">{{ selectedFileSize }}</p>
             </div>
         </div>
+        <button (click)="removeFile()"
+            class="p-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200" title="Remove">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+        </button>
     </div>
 
-    <!-- Parsed Data Section -->
-    <div *ngIf="isParsing" class="flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl">
-        <svg class="animate-spin h-8 w-8 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <!-- ============================================================= -->
+    <!--  PARSING SPINNER  (Step 1: AI Parsing)                         -->
+    <!-- ============================================================= -->
+    <div *ngIf="isParsing" class="flex flex-col items-center justify-center p-10 bg-card border border-border rounded-2xl">
+        <svg class="animate-spin h-10 w-10 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="text-sm font-medium text-muted-foreground animate-pulse">Parsing resume using local PDF parser...</p>
+        <p class="text-sm font-semibold text-foreground">Parsing your resume…</p>
+        <p class="text-xs text-muted-foreground mt-1">Extracting name, email, phone, skills, experience, and education</p>
     </div>
 
-    <div *ngIf="parsedData" class="bg-card border border-border rounded-xl p-6 space-y-6">
-        <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">Parsed Resume Information</h2>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Name</p>
-                <p class="text-sm font-medium text-foreground mt-1">{{ parsedData.name || 'N/A' }}</p>
+
+
+    <!-- ============================================================= -->
+    <!--  PARSED DATA FORM  +  APPROVAL  +  SAVE  (Step 2 + 3 + 4)     -->
+    <!-- ============================================================= -->
+    <div *ngIf="parsedData" class="bg-card border border-border rounded-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 bg-muted/30 border-b border-border">
+            <h2 class="text-lg font-bold text-foreground">Review Parsed Information</h2>
+            <p class="text-xs text-muted-foreground mt-0.5">Please verify and edit the extracted details before approving</p>
+        </div>
+
+        <!-- Form fields -->
+        <div class="p-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="space-y-1.5">
+                    <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Full Name</label>
+                    <input [(ngModel)]="parsedData.name" type="text" placeholder="Enter full name"
+                           class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Email Address</label>
+                    <input [(ngModel)]="parsedData.email" type="email" placeholder="Enter email"
+                           class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Phone Number</label>
+                    <input [(ngModel)]="parsedData.phone" type="text" placeholder="Enter phone number"
+                           class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Total Experience (Years)</label>
+                    <input [(ngModel)]="parsedData.experience" type="number" placeholder="0"
+                           class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                </div>
             </div>
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Email</p>
-                <p class="text-sm font-medium text-foreground mt-1">{{ parsedData.email || 'N/A' }}</p>
+            <div class="space-y-1.5">
+                <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Skills</label>
+                <textarea [(ngModel)]="parsedData.skills" rows="2" placeholder="e.g. JavaScript, Angular, Python…"
+                          class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"></textarea>
             </div>
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Phone</p>
-                <p class="text-sm font-medium text-foreground mt-1">{{ parsedData.phone || 'N/A' }}</p>
-            </div>
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Skills</p>
-                <p class="text-sm font-medium text-foreground mt-1">{{ parsedData.skills || 'N/A' }}</p>
+            <div class="space-y-1.5">
+                <label class="text-xs text-muted-foreground uppercase font-semibold tracking-wider px-1">Education</label>
+                <textarea [(ngModel)]="parsedData.education" rows="2" placeholder="e.g. B.Tech in Computer Science…"
+                          class="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"></textarea>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">Total Experience (Years)</p>
-                <p class="text-sm text-foreground font-medium">{{ parsedData.experience !== undefined ? parsedData.experience : '0' }}</p>
+        <!-- Footer: Approval + Save -->
+        <div class="px-6 py-4 bg-muted/20 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+            <!-- Approval checkbox -->
+            <div class="flex items-center gap-3 group cursor-pointer select-none" (click)="isApproved = !isApproved">
+                <div [ngClass]="isApproved ? 'bg-primary border-primary shadow-primary/30 shadow-md' : 'bg-background border-border'"
+                     class="w-5 h-5 border-2 rounded flex items-center justify-center transition-all duration-200">
+                    <svg *ngIf="isApproved" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3.5 h-3.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                    I approve the parsed details above
+                </span>
             </div>
-            <div>
-                <p class="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">Education</p>
-                <p class="text-sm text-foreground font-medium">{{ parsedData.education || 'N/A' }}</p>
-            </div>
-        </div>
-        
-        <div class="pt-4 border-t border-border flex justify-end">
-            <button (click)="saveToProfile()" [disabled]="isSaving"
-                class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold shadow hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+
+            <!-- Upload & Save button -->
+            <button (click)="processUploadAndSave()" [disabled]="isSaving || !isApproved"
+                class="w-full sm:w-auto px-8 py-2.5 bg-primary text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:grayscale disabled:pointer-events-none flex items-center justify-center gap-2">
                 <svg *ngIf="isSaving" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                {{ isSaving ? 'Saving...' : 'Save to Profile' }}
+                <svg *ngIf="!isSaving" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                {{ isSaving ? 'Processing…' : 'Upload &amp; Save Resume' }}
             </button>
         </div>
     </div>
+
+    <!-- ============================================================= -->
+    <!--  STEP 6: FINAL OUTPUT — Candidate Details + Download Link      -->
+    <!-- ============================================================= -->
+    <div *ngIf="finalCandidate" class="bg-card border border-border rounded-2xl overflow-hidden animate-slideIn">
+        <!-- Success header -->
+        <div class="px-6 py-5 bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-b border-green-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="white" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-foreground">Resume Saved Successfully</h2>
+                    <p class="text-xs text-muted-foreground mt-0.5">Candidate profile has been updated</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidate details grid -->
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div *ngFor="let field of finalCandidateFields"
+                     class="flex flex-col bg-muted/20 rounded-lg px-4 py-3">
+                    <span class="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">{{ field.label }}</span>
+                    <span class="text-sm font-medium text-foreground mt-0.5">{{ field.value || '—' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resume download link -->
+        <div class="px-6 py-4 bg-muted/20 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                </svg>
+                <span class="font-mono text-xs truncate max-w-xs">{{ getResumeDownloadUrl() }}</span>
+            </div>
+            <a [href]="getResumeDownloadUrl()" target="_blank"
+               class="flex items-center gap-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-green-600/25 hover:shadow-green-600/40 hover:scale-[1.02] active:scale-[0.98]">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Download Resume
+            </a>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!--  UPLOAD ANOTHER (visible after successful save)                -->
+    <!-- ============================================================= -->
+    <div *ngIf="finalCandidate" class="text-center">
+        <button (click)="resetWorkflow()"
+            class="text-sm font-medium text-primary hover:text-primary/80 hover:underline transition-all">
+            ← Upload a different resume
+        </button>
+    </div>
+
 </div>

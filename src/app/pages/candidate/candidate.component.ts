@@ -2,6 +2,15 @@ import { Component } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../auth.service';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { CandidateDataComponent } from './candidate-data/candidate-data.component';
+
+interface NavItem {
+  label: string;
+  route: string;
+  icon: string;
+  safeIcon?: SafeHtml;
+}
 
 @Component({
   selector: 'app-candidate',
@@ -14,7 +23,17 @@ export class CandidateComponent {
   sidebarOpen = false;       // mobile slide-in
   sidebarCollapsed = false;   // desktop collapse
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService, 
+    private router: Router,
+    private sanitizer: DomSanitizer
+  ) {
+    // Sanitize icons on initialization
+    this.navItems = this.navItems.map(item => ({
+      ...item,
+      safeIcon: this.sanitizer.bypassSecurityTrustHtml(item.icon)
+    }));
+  }
 
   get displayName(): string {
     return this.auth.getDisplayName() || 'Candidate';
@@ -29,7 +48,7 @@ export class CandidateComponent {
     return parts[0].charAt(0).toUpperCase();
   }
 
-  navItems = [
+  navItems: NavItem[] = [
     {
       label: 'Apply for Jobs',
       route: 'apply-jobs',

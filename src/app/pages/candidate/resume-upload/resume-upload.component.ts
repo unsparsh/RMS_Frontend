@@ -1,210 +1,531 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HeroService } from '../../../hero.service';
 import { Router } from '@angular/router';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-resume-upload',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './resume-upload.component.html',
   styleUrls: ['./resume-upload.component.css']
 })
-export class ResumeUploadComponent {
+export class ResumeUploadComponent implements OnInit {
+
+  // --- State flags ---
   isParsing = false;
   isSaving = false;
-  parsedData: any = null;
-  files: { name: string; size: string; date: string; type: string, fileObj?: File }[] = [];
+  isApproved = false;
   isDragging = false;
+
+  // --- Toast / Status ---
+  statusMessage = '';
+  statusType: 'success' | 'error' | 'info' = 'info';
+  showStatus = false;
+
+  // --- Data ---
+  parsedData: any = null;
+  selectedFile: File | null = null;
+  selectedFileName = '';
+  selectedFileSize = '';
+  selectedFileType = '';
+
+  // --- Persisted resume info (from DB) ---
+  resumeFileName = '';
+
+  // --- Stored details toggle ---
+  showStoredDetails = false;
+  isLoadingStoredDetails = false;
+  storedCandidateFields: { label: string; value: string }[] = [];
+
+  // --- Step 6: Final output ---
+  finalCandidate: any = null;
+  finalCandidateFields: { label: string; value: string }[] = [];
+
+  // --- Step Progress ---
+  currentStep = 0;
+  workflowSteps = ['Upload', 'Parse', 'Review', 'Upload to Server', 'Save to DB', 'Done'];
+
+  // --- Constants ---
+  private readonly DOWNLOAD_BASE = 'http://43.242.214.239:81/home/training2025/MAHINDRA_UPLOADS/Intern_Uploads';
 
   constructor(private heroService: HeroService, private router: Router) {}
 
+  // =====================================================================
+  //  LIFECYCLE
+  // =====================================================================
   ngOnInit(): void {
     const candidateId = sessionStorage.getItem('candidate_id');
-    console.log('Current Session Candidate ID:', candidateId);
-    if (!candidateId) {
-       console.warn('No candidate_id found in session. Saving will be disabled.');
+    if (candidateId) {
+      this.loadExistingResume(candidateId);
+    } else {
+      console.warn('No candidate_id in session.');
     }
   }
 
-  onDragOver(event: DragEvent): void {
-    event.preventDefault();
-    this.isDragging = true;
-  }
-
-  onDragLeave(): void {
-    this.isDragging = false;
-  }
-
-  onDrop(event: DragEvent): void {
-    event.preventDefault();
-    this.isDragging = false;
-    const droppedFiles = event.dataTransfer?.files;
-    if (droppedFiles && droppedFiles.length > 0) {
-      this.handleFile(droppedFiles[0]);
+  private async loadExistingResume(candidateId: string) {
+    try {
+      const resp = await this.heroService.getCandidateObject(candidateId);
+      const candidate = this.heroService.xmltojson(resp, 'candidate');
+      if (candidate) {
+        const path: string = this.extractTextField(candidate.resume_path);
+        if (path) {
+          this.resumeFileName = this.bareFileName(path);
+        }
+      }
+    } catch (err) {
+      console.error('Could not load existing resume:', err);
     }
   }
 
-  onFileSelect(event: Event): void {
-    const inputElement = event.target as HTMLInputElement;
-    if (inputElement.files && inputElement.files.length > 0) {
-      this.handleFile(inputElement.files[0]);
+  // =====================================================================
+  //  TOGGLE STORED CANDIDATE DETAILS
+  // =====================================================================
+  async toggleStoredDetails() {
+    this.showStoredDetails = !this.showStoredDetails;
+
+    // If opening and we haven't loaded yet (or want to refresh), fetch from DB
+    if (this.showStoredDetails && this.storedCandidateFields.length === 0) {
+      const candidateId = sessionStorage.getItem('candidate_id');
+      if (!candidateId) return;
+
+      this.isLoadingStoredDetails = true;
+      try {
+        const resp = await this.heroService.getCandidateObject(candidateId);
+        const candidate = this.heroService.xmltojson(resp, 'candidate');
+        if (candidate) {
+          const ext = (field: any): string => {
+            if (!field) return '';
+            if (typeof field === 'string') return field;
+            return field.text || field['#text'] || '';
+          };
+          this.storedCandidateFields = [
+            { label: 'Candidate ID', value: ext(candidate.candidate_id) },
+            { label: 'Name',         value: ext(candidate.name) },
+            { label: 'Email',        value: ext(candidate.email) },
+            { label: 'Phone',        value: ext(candidate.phone) },
+            { label: 'Skills',       value: ext(candidate.skills) },
+            { label: 'Experience',   value: ext(candidate.experience) ? ext(candidate.experience) + ' years' : '' },
+            { label: 'Education',    value: ext(candidate.education) },
+            { label: 'Resume File',  value: ext(candidate.resume_path) }
+          ];
+        }
+      } catch (err) {
+        console.error('Failed to load candidate details:', err);
+      } finally {
+        this.isLoadingStoredDetails = false;
+      }
     }
   }
 
-  removeFile(index: number): void {
-    this.files.splice(index, 1);
+  // =====================================================================
+  //  FILE SELECTION
+  // =====================================================================
+  onDragOver(e: DragEvent) { e.preventDefault(); this.isDragging = true; }
+  onDragLeave() { this.isDragging = false; }
+
+  onDrop(e: DragEvent) {
+    e.preventDefault(); this.isDragging = false;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) this.handleFile(files[0]);
+  }
+
+  onFileSelect(e: Event) {
+    const el = e.target as HTMLInputElement;
+    if (el.files && el.files.length > 0) this.handleFile(el.files[0]);
+  }
+
+  removeFile() {
+    this.selectedFile = null;
+    this.selectedFileName = '';
+    this.parsedData = null;
+    this.isApproved = false;
+    this.finalCandidate = null;
+    this.finalCandidateFields = [];
+    this.currentStep = 0;
   }
 
   private handleFile(file: File) {
-    const fileSize = (file.size / 1024).toFixed(2) + ' KB';
-    let fileType = file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN';
+    this.selectedFile = file;
+    this.selectedFileName = file.name;
+    this.selectedFileSize = (file.size / 1024).toFixed(2) + ' KB';
+    this.selectedFileType = file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN';
+    this.isApproved = false;
+    this.finalCandidate = null;
+    this.finalCandidateFields = [];
+    this.currentStep = 0;
+    this.showToast('File selected: ' + file.name, 'info');
+
     if (file.type === 'application/pdf') {
-      fileType = 'PDF';
-    } else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
-      fileType = 'DOCX';
-    }
-
-    this.files.unshift({
-      name: file.name,
-      size: fileSize,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-      type: fileType,
-      fileObj: file
-    });
-
-    if (fileType === 'PDF') {
-      this.parseResumeWithPDFPackage(file);
+      this.parseResumeFromPDF(file);
+    } else {
+      // For DOC/DOCX files, show empty fields for manual entry
+      this.parsedData = { name: null, email: null, phone: null, skills: null, experience: null, education: null };
+      this.currentStep = 2; // Skip to review step
     }
   }
 
-  async parseResumeWithPDFPackage(file: File) {
+  // =====================================================================
+  //  RESUME PARSING via Gemini API  (Step 1)
+  // =====================================================================
+  async parseResumeFromPDF(file: File) {
     this.isParsing = true;
     this.parsedData = null;
-
+    this.currentStep = 1; // Parsing step
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      // Use dynamic import for pdfjs-dist because it might not be fully ES-compatible depending on env
+      // Step 1: Extract raw text from PDF
+      const ab = await file.arrayBuffer();
       const pdfjsLib = await (import('pdfjs-dist') as any);
-      // Set worker to CDN for version 3.11.174 (compatible with ES2022 and below)
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      
-      let fullText = '';
+      const pdf = await (pdfjsLib.getDocument({ data: ab })).promise;
+      let text = '';
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+        const tc = await page.getTextContent();
+        text += tc.items.map((item: any) => item.str).join(' ') + '\n';
       }
 
-      console.log('Resulting text from PDF:', fullText);
-      this.extractFieldsFromText(fullText);
-    } catch (error: any) {
-      console.error('Error parsing PDF:', error);
-      alert('Failed to parse the PDF. ' + (error.message || error));
+      console.log('Extracted PDF text length:', text.length);
+
+      // Step 2: Send to Gemini API for intelligent parsing
+      this.showToast('Parsing resume with Gemini AI…', 'info');
+      const parsed = await this.parseWithGemini(text);
+
+      if (parsed) {
+        this.parsedData = this.normalizeNulls(parsed);
+        this.currentStep = 2; // Advance to review step
+        this.showToast('Resume parsed successfully with Gemini AI!', 'success');
+      } else {
+        // Fallback to basic regex if Gemini fails
+        console.warn('Gemini parsing returned null, falling back to regex.');
+        this.extractFieldsFromTextFallback(text);
+        this.currentStep = 2;
+        this.showToast('Parsed with basic extraction (Gemini unavailable).', 'info');
+      }
+    } catch (err: any) {
+      console.error('PDF parse error:', err);
+      this.showToast('Failed to parse PDF: ' + (err.message || err), 'error');
     } finally {
       this.isParsing = false;
     }
   }
 
-  private extractFieldsFromText(text: string) {
-    // Basic Regex Extractor
+  /** Call Gemini API to parse resume text into structured fields */
+  private async parseWithGemini(resumeText: string): Promise<any> {
+    const apiKey = environment.geminiApiKey;
+    if (!apiKey) {
+      console.warn('Gemini API key not configured.');
+      return null;
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    const prompt = `You are a resume parser. Extract the following information from the resume text below and return ONLY a valid JSON object (no markdown, no code fences, no explanation).
+
+JSON format:
+{
+  "name": "Full Name",
+  "email": "email@example.com",
+  "phone": "phone number",
+  "skills": "comma separated skills",
+  "experience": 0,
+  "education": "highest education details"
+}
+
+Rules:
+- "experience" must be a number (years of experience). If not found, use 0.
+- If a field is not found, use null for that field.
+- For "skills", list all technical and professional skills found, comma separated.
+- For "education", include degree, institution, and year if available.
+
+Resume text:
+${resumeText}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1024
+          }
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Gemini API HTTP error:', response.status, response.statusText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('Gemini API raw response:', data);
+
+      // Extract the text content from the response
+      const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('Gemini response text:', content);
+
+      // Clean the response: strip possible markdown code fences
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // Normalize the parsed data — return null for missing fields
+      return {
+        name:       parsed.name ? String(parsed.name).substring(0, 254) : null,
+        email:      parsed.email ? String(parsed.email).substring(0, 254) : null,
+        phone:      parsed.phone ? String(parsed.phone).substring(0, 19) : null,
+        skills:     parsed.skills ? String(parsed.skills).substring(0, 499) : null,
+        experience: typeof parsed.experience === 'number' ? parsed.experience : (parseInt(parsed.experience) || null),
+        education:  parsed.education ? String(parsed.education).substring(0, 254) : null
+      };
+    } catch (err) {
+      console.error('Gemini parsing error:', err);
+      return null;
+    }
+  }
+
+  /** Fallback: basic regex extraction if Gemini is unavailable */
+  private extractFieldsFromTextFallback(text: string) {
     const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const phoneMatch = text.match(/[\d]{3}[- .]?[\d]{3}[- .]?[\d]{4}/) || text.match(/\+?\d[\d\s\-\(\)]{8,}/);
-    
-    // Improved Name Extraction: Take the first substantial line (ignoring typical headers)
+
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
-    let name = 'N/A';
+    let name: string | null = null;
     for (const line of lines.slice(0, 5)) {
-       // Ignore common non-name headers
-       if (!/resume|curriculum|vitae|profile|about|candidate|summary/i.test(line)) {
-          name = line;
-          break;
-       }
+      if (!/resume|curriculum|vitae|profile|about|candidate|summary/i.test(line)) {
+        name = line; break;
+      }
     }
 
-    // Simple keyword extraction for other fields
-    let skills = 'N/A';
-    let education = 'N/A';
-    let experienceNum = 0;
+    const lower = text.toLowerCase();
+    let skills: string | null = null;
+    let education: string | null = null;
+    let experienceNum: number | null = null;
 
-    const lowerText = text.toLowerCase();
-    
-    // Skills heuristic: Look for Skill sections
-    const skillKeywordIdx = lowerText.indexOf('skills');
-    if (skillKeywordIdx !== -1) {
-       skills = text.substring(skillKeywordIdx + 6, skillKeywordIdx + 500).split('\n')[0].substring(0, 499);
-       // Remove leading colons or bullets
-       skills = skills.replace(/^[:\-·\s]+/, '').trim();
+    const si = lower.indexOf('skills');
+    if (si !== -1) {
+      const raw = text.substring(si + 6, si + 500).split('\n')[0].replace(/^[:\-·\s]+/, '').trim();
+      skills = raw ? raw.substring(0, 499) : null;
     }
 
-    // Experience: Support decimals with comma (e.g. 5,5 years) or dots
-    const expKeywordIdx = lowerText.indexOf('experience');
-    if (expKeywordIdx !== -1) {
-       const nearExp = text.substring(expKeywordIdx - 50, expKeywordIdx + 150);
-       // Matches digits followed by optional comma/dot and more digits (e.g., 5.5, 5,5)
-       const yearMatch = nearExp.match(/(\d+[\.,]?\d*)\s*(year|yr|exp)/i);
-       if (yearMatch) {
-          const val = yearMatch[1].replace(',', '.');
-          experienceNum = Math.round(parseFloat(val));
-       }
+    const ei = lower.indexOf('experience');
+    if (ei !== -1) {
+      const near = text.substring(Math.max(0, ei - 50), ei + 150);
+      const ym = near.match(/(\d+[\.,]?\d*)\s*(year|yr|exp)/i);
+      if (ym) experienceNum = Math.round(parseFloat(ym[1].replace(',', '.')));
     }
 
-    const eduKeywordIdx = lowerText.indexOf('education');
-    if (eduKeywordIdx !== -1) {
-       education = text.substring(eduKeywordIdx + 9, eduKeywordIdx + 250).split('\n')[0].substring(0, 254);
-       education = education.replace(/^[:\-·\s]+/, '').trim();
+    const edi = lower.indexOf('education');
+    if (edi !== -1) {
+      const raw = text.substring(edi + 9, edi + 250).split('\n')[0].replace(/^[:\-·\s]+/, '').trim();
+      education = raw ? raw.substring(0, 254) : null;
     }
 
     this.parsedData = {
-      name: name.substring(0, 254),
-      email: emailMatch ? emailMatch[0].substring(0, 254) : 'N/A',
-      phone: phoneMatch ? phoneMatch[0].substring(0, 19) : 'N/A',
-      skills: skills,
+      name: name ? name.substring(0, 254) : null,
+      email: emailMatch ? emailMatch[0].substring(0, 254) : null,
+      phone: phoneMatch ? phoneMatch[0].substring(0, 19) : null,
+      skills,
       experience: experienceNum,
-      education: education
+      education
     };
-    
-    console.log('Locally extracted data (Refined):', this.parsedData);
+    this.isApproved = false;
   }
 
-  saveToProfile() {
-    if (!this.parsedData || this.files.length === 0) return;
-    
+  // =====================================================================
+  //  DOWNLOAD URL
+  // =====================================================================
+  getResumeDownloadUrl(): string {
+    if (!this.resumeFileName) return '#';
+    return `${this.DOWNLOAD_BASE}/${this.resumeFileName}`;
+  }
+
+  // =====================================================================
+  //  MAIN FLOW: UPLOAD → SAVE → FETCH  (Steps 3, 4, 5)
+  // =====================================================================
+  async processUploadAndSave() {
+    if (!this.selectedFile || !this.parsedData) {
+      this.showToast('Please upload a resume first.', 'error'); return;
+    }
+    if (!this.isApproved) {
+      this.showToast('Please approve the parsed details before saving.', 'error'); return;
+    }
     const candidateId = sessionStorage.getItem('candidate_id');
     if (!candidateId) {
-      alert('You must be logged in to save to your profile. Please login and try again.');
-      return;
+      this.showToast('You must be logged in. Please login and try again.', 'error'); return;
     }
 
     this.isSaving = true;
-    
-    // Construct resume_path: UploadDocuments + FileName
-    const fileName = this.files[0]?.name || 'resume.pdf';
-    const resumePath = 'UploadDocuments' + fileName;
+    this.showToast('Uploading resume to server…', 'info');
 
-    const fieldsToUpdate: any = {
-      name: this.parsedData.name !== 'N/A' ? this.parsedData.name : '',
-      phone: this.parsedData.phone !== 'N/A' ? this.parsedData.phone : '',
-      skills: this.parsedData.skills !== 'N/A' ? this.parsedData.skills : '',
-      experience: this.parsedData.experience, // Matches INT column
-      education: this.parsedData.education !== 'N/A' ? this.parsedData.education : '',
-      resume_path: resumePath
+    try {
+      // --- Step 3: Convert to Base64 and upload ---
+      this.currentStep = 3;
+      const base64 = await this.fileToBase64(this.selectedFile);
+      console.log(`Uploading: ${this.selectedFile.name} (${this.selectedFile.size} bytes, base64 len=${base64.length})`);
+
+      const uploadResp = await this.heroService.uploadDocumentsRMS(this.selectedFile.name, base64);
+      console.log('Upload response (XMLDocument):', uploadResp);
+
+      // Extract path from the XML Document response
+      let serverPath = '';
+      if (uploadResp instanceof Document) {
+        // Try to find the UploadDocuments_RMS element text
+        const el = uploadResp.getElementsByTagName('UploadDocuments_RMS')[0];
+        if (el) serverPath = el.textContent || '';
+      }
+
+      // Use the server path if found, otherwise fall back to original filename
+      if (serverPath) {
+        this.resumeFileName = this.bareFileName(serverPath);
+      } else {
+        console.warn('Could not extract path from response, using original filename.');
+        this.resumeFileName = this.selectedFile.name;
+      }
+
+      console.log('Resume file name:', this.resumeFileName);
+      this.showToast('File uploaded! Saving to profile…', 'info');
+
+      // --- Step 4: Save resume_path + parsed fields ---
+      this.currentStep = 4;
+      const fields: any = {
+        name:        this.parsedData.name || '',
+        phone:       this.parsedData.phone || '',
+        skills:      this.parsedData.skills || '',
+        experience:  this.parsedData.experience ?? 0,
+        education:   this.parsedData.education || '',
+        resume_path: this.resumeFileName
+      };
+      await this.heroService.updateCandidate(candidateId, fields);
+
+      // --- Step 5: Fetch updated candidate to verify ---
+      const freshResp = await this.heroService.getCandidateObject(candidateId);
+      console.log('Verified candidate:', freshResp);
+
+      // Build the final candidate object for Step 6
+      const candidateObj = this.heroService.xmltojson(freshResp, 'candidate');
+      this.buildFinalOutput(candidateObj);
+
+      // --- Step 6: Done ---
+      this.currentStep = 5;
+      this.showToast('Resume uploaded and saved successfully!', 'success');
+
+      // Reload the page after a short delay so the user sees the success toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Upload/save error:', err);
+      this.showToast('Error: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      this.isSaving = false;
+    }
+  }
+
+  // =====================================================================
+  //  STEP 6: Build Final Output
+  // =====================================================================
+  private buildFinalOutput(candidate: any) {
+    if (!candidate) {
+      this.finalCandidate = null;
+      return;
+    }
+
+    this.finalCandidate = candidate;
+
+    const ext = (field: any): string => {
+      if (!field) return '';
+      if (typeof field === 'string') return field;
+      return field.text || field['#text'] || '';
     };
 
-    this.heroService.updateCandidate(candidateId, fieldsToUpdate)
-      .then(() => {
-        alert('Resume information saved to your profile successfully!');
-        this.router.navigate(['/candidate/candidate-data']);
-      })
-      .catch((err) => {
-        console.error('Error saving to profile:', err);
-        alert('Failed to save information to profile. Please try again.');
-      })
-      .finally(() => {
-        this.isSaving = false;
-      });
+    this.finalCandidateFields = [
+      { label: 'Candidate ID', value: ext(candidate.candidate_id) },
+      { label: 'Name',         value: ext(candidate.name) },
+      { label: 'Email',        value: ext(candidate.email) },
+      { label: 'Phone',        value: ext(candidate.phone) },
+      { label: 'Skills',       value: ext(candidate.skills) },
+      { label: 'Experience',   value: ext(candidate.experience) ? ext(candidate.experience) + ' years' : '' },
+      { label: 'Education',    value: ext(candidate.education) },
+      { label: 'Resume File',  value: ext(candidate.resume_path) }
+    ];
+  }
+
+  // =====================================================================
+  //  RESET WORKFLOW (allow re-upload)
+  // =====================================================================
+  resetWorkflow() {
+    this.finalCandidate = null;
+    this.finalCandidateFields = [];
+    this.currentStep = 0;
+    this.parsedData = null;
+    this.selectedFile = null;
+    this.selectedFileName = '';
+    this.isApproved = false;
+  }
+
+  // =====================================================================
+  //  TOAST NOTIFICATIONS
+  // =====================================================================
+  showToast(message: string, type: 'success' | 'error' | 'info') {
+    this.statusMessage = message;
+    this.statusType = type;
+    this.showStatus = true;
+
+    if (type !== 'info' || !this.isSaving) {
+      setTimeout(() => { this.showStatus = false; }, 5000);
+    }
+  }
+
+  dismissToast() {
+    this.showStatus = false;
+  }
+
+  // =====================================================================
+  //  UTILITIES
+  // =====================================================================
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        resolve(dataUrl.substring(dataUrl.indexOf(',') + 1));
+      };
+      reader.onerror = err => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  private bareFileName(path: string): string {
+    if (!path) return '';
+    return path.split(/[/\\]/).pop() || path;
+  }
+
+  private extractTextField(field: any): string {
+    if (!field) return '';
+    if (typeof field === 'string') return field;
+    return field.text || field['#text'] || '';
+  }
+
+  /** Ensure missing parsed fields are explicitly null (not empty string) */
+  private normalizeNulls(data: any): any {
+    const result: any = {};
+    for (const key of ['name', 'email', 'phone', 'skills', 'education']) {
+      result[key] = data[key] && data[key] !== '' ? data[key] : null;
+    }
+    result.experience = (data.experience !== undefined && data.experience !== null && data.experience !== '')
+      ? data.experience
+      : null;
+    return result;
   }
 }

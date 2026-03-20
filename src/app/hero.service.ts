@@ -96,19 +96,24 @@ export class HeroService {
       return null;
     }
   }
-  ajax(method: string, namespace: string, parameters: any): Promise<any> {
+  ajax(method: string, namespace: string, parameters: any, dataType: string = '* json'): Promise<any> {
     return new Promise<any>((resolve, reject) => {
       $.cordys.ajax({
         method,
         namespace,
-        dataType: '* json',
+        dataType,
         parameters,
         success: (response: any) => {
           try { console.log(`HeroService.ajax SUCCESS: method=${method} namespace=${namespace}`, response); } catch (e) {}
           resolve(response);
         },
         error: (e1: any, e2: any, e3: any) => {
-          try { console.error(`HeroService.ajax ERROR: method=${method} namespace=${namespace}`, e1, e2, e3); } catch (e) {}
+          try {
+            console.error(`HeroService.ajax ERROR: method=${method} namespace=${namespace}`, e1, e2, e3);
+            if (e1 && e1.responseText) {
+              console.error('SOAP Fault Response:', e1.responseText);
+            }
+          } catch (e) {}
           reject([e1, e2, e3]);
         }
       });
@@ -604,6 +609,106 @@ export class HeroService {
     });
   }
 
+  /**
+   * Upload resume document using a raw SOAP envelope via fetch.
+   * We bypass $.cordys.ajax parameter serialization because it corrupts
+   * large Base64 strings.
+   *
+   * The gateway URL must match the pattern used by $.cordys.ajax:
+   *   /com.eibus.web.soap.Gateway.wcp?<ct_key>=<ct_value>&timeout=180000
+   *
+   * The _ct CSRF token is REQUIRED — without it the server returns 403 Forbidden.
+   */
+  uploadDocumentsRMS(fileName: string, fileContentBase64: string): Promise<any> {
+    const soapEnvelope = `<SOAP:Envelope xmlns:SOAP="http://schemas.xmlsoap.org/soap/envelope/">
+      <SOAP:Body>
+        <UploadDocuments_RMS xmlns="http://schemas.cordys.com/RMS_DB_Metadata">
+          <FileName>${fileName}</FileName>
+          <FileContent>${fileContentBase64}</FileContent>
+        </UploadDocuments_RMS>
+      </SOAP:Body>
+    </SOAP:Envelope>`;
+
+    // Build the gateway URL the same way $.cordys.ajax does:
+    //   1. Base path: /com.eibus.web.soap.Gateway.wcp  (matches proxy.config.json)
+    //   2. Append the CSRF _ct cookie token as a query parameter
+    let gatewayUrl = '/com.eibus.web.soap.Gateway.wcp';
+    try {
+      const ctCookie = ($ as any).cordys.getCookieObject('\\w*_ct');
+      if (ctCookie && ctCookie.key && ctCookie.value) {
+        gatewayUrl += `?${encodeURIComponent(ctCookie.key)}=${encodeURIComponent(ctCookie.value)}&timeout=180000`;
+      }
+    } catch (e) {
+      console.warn('Could not read _ct cookie, proceeding without CSRF token:', e);
+    }
+
+    console.log('UploadDocuments_RMS gateway URL:', gatewayUrl);
+
+    return fetch(gatewayUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+      credentials: 'include',       // send SSO cookies
+      body: soapEnvelope
+    })
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      return response.text();
+    })
+    .then(xmlText => {
+      console.log('UploadDocuments_RMS raw XML response:', xmlText);
+      // Parse the response XML to extract the file path
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+      return xmlDoc;
+    });
+  }
+
+  /**
+   * Check if a candidate has already applied for a specific job requisition.
+   */
+  getApplicationByCandidateAndJR(candidateId: string, jrId: string): Promise<any> {
+    return this.ajax('GetApplicationByCandidateAndJR', 'http://schemas.cordys.com/RMS_DB_Metadata', {
+      candidate_id: candidateId,
+      jr_id: jrId
+    });
+  }
+
+  /**
+   * Update or Create a Candidate Job Application.
+   * Maps to: <UpdateCandidate_job_application xmlns="http://schemas.cordys.com/RMS_DB_Metadata">
+   */
+  updateCandidateJobApplication(data: {
+    candidate_id: string;
+    jr_id: string;
+    application_status: string;
+    applied_at?: string;
+    stage?: string;
+  }): Promise<any> {
+    const payload: any = {
+      '@reply': 'yes',
+      '@commandUpdate': 'no',
+      '@preserveSpace': 'no',
+      '@batchUpdate': 'no',
+      tuple: {
+        new: {
+          candidate_job_application: {
+            '@qAccess': '0',
+            '@qConstraint': '0',
+            '@qInit': '0',
+            '@qValues': '',
+            candidate_id: data.candidate_id,
+            jr_id: data.jr_id,
+            application_status: data.application_status || 'Applied',
+            applied_at: data.applied_at || new Date().toISOString(),
+            stage: data.stage || 'Applied'
+          }
+        }
+      }
+    };
+
+    return this.ajax('UpdateCandidate_job_application', 'http://schemas.cordys.com/RMS_DB_Metadata', payload);
+  }
 }
+
 
 
