@@ -875,6 +875,74 @@
   font-weight: 500;
 }
 
+/* ========== ACCORDION ========== */
+.accordion-container {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  user-select: none;
+}
+
+.accordion-header:hover {
+  background: rgba(var(--navy-rgb), 0.02);
+}
+
+.accordion-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.accordion-title-row h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.accordion-badge {
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.accordion-chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.accordion-header.open .accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.accordion-body {
+  padding: 0 24px 24px;
+  animation: accordionSlideIn 0.25s ease-out;
+}
+
+@keyframes accordionSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ========== EMPTY STATE ========== */
 .empty-state {
   text-align: center;

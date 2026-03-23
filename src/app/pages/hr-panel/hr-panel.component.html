@@ -36,9 +36,9 @@
       <!-- Expanded Footer -->
       <div class="footer-expanded" *ngIf="!isSidebarCollapsed">
         <div class="candidate-profile">
-          <div class="candidate-initial">S</div>
+          <div class="candidate-initial">{{ loggedInAdminInitial }}</div>
           <div class="candidate-text">
-            <div class="candidate-name" style="color: #FFFFFF; font-weight: 600;">Sarah Lindqvist</div>
+            <div class="candidate-name" style="color: #FFFFFF; font-weight: 600;">{{ loggedInAdminFullName }}</div>
             <div class="candidate-email" style="color: #94A3B8;">HR Admin</div>
           </div>
         </div>
@@ -51,8 +51,8 @@
       <!-- Collapsed Footer -->
       <div class="footer-expanded collapsed-state" *ngIf="isSidebarCollapsed">
         <div class="candidate-profile menu-item-internal" style="padding:0; margin-bottom: 15px; justify-content: center; background:transparent;">
-           <div class="candidate-initial">S</div>
-           <div class="tooltip" style="left: 60px;">Sarah Lindqvist</div>
+           <div class="candidate-initial">{{ loggedInAdminInitial }}</div>
+           <div class="tooltip" style="left: 60px;">{{ loggedInAdminFullName }}</div>
         </div>
         <div class="logout-action menu-item-internal" style="padding:0; justify-content: center; color: #CBD5E1; background:transparent; cursor: pointer;" (click)="logout()">
            <i class="fas fa-sign-out-alt"></i>
@@ -83,8 +83,8 @@
         <!-- Dashboard Header -->
         <div class="dashboard-header mb-4" style="background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
           <div class="greeting-area">
-            <h1 style="color: #0F172A; font-weight: 700; font-size: 1.8rem; margin-bottom: 0.2rem;">Good Morning, Sarah 👋</h1>
-            <p class="date-subtitle" style="color: #64748B; font-size: 0.95rem; font-weight: 500;">Thursday, 5 March 2026</p>
+            <h1 style="color: #0F172A; font-weight: 700; font-size: 1.8rem; margin-bottom: 0.2rem;">Good Morning, {{ loggedInAdminName }} 👋</h1>
+            <p class="date-subtitle" style="color: #64748B; font-size: 0.95rem; font-weight: 500;">{{ currentDate | date:'EEEE, d MMMM y' }}</p>
           </div>
           <div class="header-actions">
             <div class="search-bar" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -1316,8 +1316,130 @@
         </div>
       </ng-container>
 
+      <!-- ==================== OFFER TRACKER TAB ==================== -->
+      <ng-container *ngIf="activeTab === 'Offer Tracker'">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
+          <div class="dashboard-header mb-3">
+            <div>
+              <h1 style="font-size: 1.5rem;">Offer Tracker</h1>
+              <p class="text-muted">Manage offered candidates, generate offer letters, and handle approvals.</p>
+            </div>
+            <div class="header-actions">
+              <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search offers..." [(ngModel)]="offerSearchQuery">
+              </div>
+            </div>
+          </div>
+          
+          <div *ngIf="isLoadingOffers" style="display: flex; align-items: center; justify-content: center; padding: 60px 20px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #0B2265;"></i>
+          </div>
+
+          <div class="panel-table-wrapper bg-white rounded-lg" style="border: 1px solid #E2E8F0;" *ngIf="!isLoadingOffers">
+            <table class="panel-table">
+              <thead>
+                <tr>
+                  <th>Candidate ID</th>
+                  <th>Candidate Name</th>
+                  <th>Job Requisition ID</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let candidate of filteredOffers" class="panel-row">
+                  <td><span class="dept-badge">{{ getExt(candidate.raw?.candidate_id) }}</span></td>
+                  <td style="font-weight: 500;">{{ getExt(candidate.raw?.candidate_name) }}</td>
+                  <td>{{ getExt(candidate.raw?.jr_id) }}</td>
+                  <td>
+                    <button class="btn btn-primary-sm" (click)="openCreateOfferModal(candidate)">Process Offer</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="empty-state" *ngIf="filteredOffers.length === 0">
+              <i class="fas fa-file-signature"></i>
+              <p>No offered candidates found matching your criteria.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CREATE OFFER MODAL -->
+        <div class="modal-backdrop" *ngIf="showCreateOfferModal" (click)="closeCreateOfferModal()">
+          <div class="modal-dialog" style="max-width: 650px;" (click)="$event.stopPropagation()">
+            <div class="modal-header-row">
+              <h3><i class="fas fa-file-invoice text-blue"></i> Offer Details</h3>
+              <button class="modal-close-btn" (click)="closeCreateOfferModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <p class="text-muted mb-4" style="font-size: 0.9rem;">Please enter the offer details for {{ getExt(selectedOfferCandidate?.raw?.candidate_name) }}.</p>
+            
+            <form (ngSubmit)="submitCreateOffer()" class="req-form">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <!-- Fixed Details -->
+                <div class="form-group mb-0">
+                  <label>Candidate ID</label>
+                  <input type="text" class="form-input bg-gray-50" readonly [value]="selectedOfferCandidate?.candidate_id">
+                </div>
+                <div class="form-group mb-0">
+                  <label>Job Requisition ID</label>
+                  <input type="text" class="form-input bg-gray-50" readonly [value]="selectedOfferCandidate?.jr_id">
+                </div>
+                
+                <!-- Editable Details -->
+                <div class="form-group mb-0">
+                  <label>Offer Date</label>
+                  <input type="date" class="form-input" [(ngModel)]="offerForm.offer_date" name="offer_date" required>
+                </div>
+                <div class="form-group mb-0">
+                  <label>Date of Joining</label>
+                  <input type="date" class="form-input" [(ngModel)]="offerForm.date_of_joining" name="doj">
+                </div>
+                <div class="form-group mb-0">
+                  <label>Salary Offered (₹) <span class="text-red-500">*</span></label>
+                  <input type="text" class="form-input" [(ngModel)]="offerForm.salary_offered" name="salary" placeholder="e.g. ₹ 8,00,000" required>
+                </div>
+              </div>
+              
+              <div class="form-actions mt-4" style="display: flex; gap: 15px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline-sm" (click)="closeCreateOfferModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary-blue">Save Details</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- PREVIEW/APPROVAL MODAL -->
+        <div class="modal-backdrop" *ngIf="showPreviewOfferModal" (click)="closePreviewOfferModal()">
+          <div class="modal-dialog" style="max-width: 600px;" (click)="$event.stopPropagation()">
+            <div class="modal-header-row" style="margin-bottom: 20px;">
+              <h3><i class="fas fa-check-circle" style="color: #10B981;"></i> Process Offer</h3>
+              <button class="modal-close-btn" (click)="closePreviewOfferModal()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div style="background: #F8FAFC; padding: 20px; border-radius: 8px; border: 1px solid #E2E8F0; margin-bottom: 25px;">
+              <h4 style="margin: 0 0 15px 0; color: #0F172A; font-weight: 600; font-size: 1.1rem; border-bottom: 1px solid #CBD5E1; padding-bottom: 8px;">Offer Summary</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.95rem;">
+                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Candidate Name</span><strong style="color: #1E293B;">{{ getExt(selectedOfferCandidate?.raw?.candidate_name) }}</strong></div>
+                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Role</span><strong style="color: #1E293B;">{{ selectedOfferJob?.job_title }}</strong></div>
+                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Salary</span><strong style="color: #10B981;">₹ {{ offerForm.salary_offered }}</strong></div>
+                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Joining Date</span><strong style="color: #1E293B;">{{ offerForm.date_of_joining || 'TBD' }}</strong></div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary-blue" style="width: 100%; justify-content: center; margin-bottom: 25px; padding: 12px; font-size: 1.05rem;" (click)="generateOfferLetter()">
+              <i class="fas fa-print" style="margin-right: 8px;"></i> Generate Offer Letter
+            </button>
+            
+            <div class="form-actions" style="display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid #E2E8F0; padding-top: 15px;">
+              <button type="button" class="btn btn-outline-sm" (click)="closePreviewOfferModal()">Cancel</button>
+              <button type="button" class="btn" style="background: #10B981; color: white; transition: background 0.2s;" (click)="sendOfferForApproval()"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Send for Approval</button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
       <!-- ==================== FALLBACK FOR OTHER TABS ==================== -->
-      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking'">
+      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking' && activeTab !== 'Offer Tracker'">
         <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
           <div class="dashboard-header">
             <h1>{{ activeTab }}</h1>

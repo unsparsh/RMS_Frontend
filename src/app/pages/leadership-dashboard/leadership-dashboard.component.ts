@@ -105,6 +105,20 @@ export class LeadershipDashboardComponent implements OnInit {
   candidates: Candidate[] = [];
   interviews: any[] = [];
   offers: any[] = [];
+  candidateApplications: any[] = [];
+  offeredCandidates: any[] = [];
+
+  // Accordion toggle states
+  jobAccordionOpen = true;
+  offerAccordionOpen = true;
+
+  // Offer detail modal
+  showOfferDetailModal = false;
+  selectedOffer: any = null;
+  isProcessingOffer = false;
+  toastMessage = '';
+  toastType: 'success' | 'error' = 'success';
+  showToastFlag = false;
 
   ngOnInit(): void {
     this.loadAllData();
@@ -116,12 +130,14 @@ export class LeadershipDashboardComponent implements OnInit {
     try {
       // Fetch all data in parallel
       // Try getAllJobRequisitions first (includes pending); fallback to ShowAll
-      const [jobsResp, employeesResp, candidatesResp, interviewsResp, offersResp] = await Promise.all([
+      const [jobsResp, employeesResp, candidatesResp, interviewsResp, offersResp, appResp, offeredResp] = await Promise.all([
         this.dashboardService.getAllJobRequisitions(),
         this.dashboardService.getEmployees(),
         this.dashboardService.getCandidates(),
         this.dashboardService.getInterviews(),
-        this.dashboardService.getOffers()
+        this.dashboardService.getOffers(),
+        this.dashboardService.getCandidateJobApplications(),
+        this.dashboardService.getOfferedApplications()
       ]);
 
       // Separate active jobs from pending approvals
@@ -191,6 +207,42 @@ export class LeadershipDashboardComponent implements OnInit {
 
       this.interviews = interviewsResp || [];
       this.offers = offersResp || [];
+      this.candidateApplications = appResp || [];
+      this.offeredCandidates = (offeredResp || []).map((o: any) => {
+        const candidateId = o.candidate_id || '';
+        const jrId = o.jr_id || '';
+        const candidateName = o.candidate?.temp1 || candidateId || 'Unknown';
+        const jobTitle = o.job_requisition?.temp2 || jrId || 'Unknown Position';
+
+        // Enrich with candidate master data
+        const cand = this.candidates.find(c => c.candidate_id === candidateId) || {} as any;
+        // Enrich with offer details
+        const offerData = this.offers.find((of: any) =>
+          (of.candidate_id || '') === candidateId && (of.jr_id || '') === jrId
+        ) || {} as any;
+
+        return {
+          candidate_id: candidateId,
+          jr_id: jrId,
+          candidate_name: candidateName,
+          job_title: jobTitle,
+          application_status: o.application_status || 'OFFERED',
+          stage: o.stage || 'offered',
+          // Candidate details
+          email: cand.email || '',
+          phone: cand.phone || '',
+          skills: cand.skills || '',
+          experience: cand.experience || 0,
+          education: cand.education || '',
+          // Offer details
+          offer_date: offerData.offer_date || '',
+          date_of_joining: offerData.date_of_joining || '',
+          salary_offered: offerData.salary_offered || '',
+          offer_status: offerData.offer_status || '',
+          approval_status: offerData.approval_status || 'PENDING',
+          raw: o
+        };
+      });
 
       // Resolve logged-in user name from employee data
       const loggedInId = sessionStorage.getItem('employeeId') || '';
@@ -271,20 +323,22 @@ export class LeadershipDashboardComponent implements OnInit {
   }
 
   private buildPipelineChart(): void {
-    const statusMap: Record<string, number> = {};
-    this.candidates.forEach(c => {
-      const s = c.interview_status || 'Unknown';
-      statusMap[s] = (statusMap[s] || 0) + 1;
+    const stageMap: Record<string, number> = {};
+    this.candidateApplications.forEach((a: any) => {
+      const rawStage = (a.application_status || a.stage || 'APPLIED').toUpperCase();
+      stageMap[rawStage] = (stageMap[rawStage] || 0) + 1;
     });
 
     const colorMap: Record<string, string> = {
-      'IN_PROGRESS': '#0B2265',
-      'SCHEDULED': '#00C4F0',
-      'COMPLETED': '#27ae60',
-      'PENDING': '#f39c12',
+      'APPLIED': '#0B2265',
+      'SCREENED': '#2F4B8F',
+      'SHORTLISTED': '#4B6EAF',
+      'IN_PROGRESS': '#0088A8',
+      'OFFERED': '#00C4F0',
+      'JOINED': '#10B981',
       'REJECTED': '#e74c3c'
     };
-    const data = Object.entries(statusMap).map(([name, value]) => ({
+    const data = Object.entries(stageMap).map(([name, value]) => ({
       value, name, itemStyle: { color: colorMap[name] || '#9b59b6' }
     }));
 
@@ -585,6 +639,218 @@ export class LeadershipDashboardComponent implements OnInit {
       case 'REJECTED': return 'status-on-leave';
       default: return 'status-pending';
     }
+  }
+
+  toggleJobAccordion() {
+    this.jobAccordionOpen = !this.jobAccordionOpen;
+  }
+
+  toggleOfferAccordion() {
+    this.offerAccordionOpen = !this.offerAccordionOpen;
+  }
+
+  // ─── Offer Detail Modal ───
+  openOfferDetailModal(offer: any) {
+    this.selectedOffer = offer;
+    this.showOfferDetailModal = true;
+  }
+
+  closeOfferDetailModal() {
+    this.showOfferDetailModal = false;
+    this.selectedOffer = null;
+  }
+
+  async approveOffer() {
+    if (!this.selectedOffer || this.isProcessingOffer) return;
+    this.isProcessingOffer = true;
+
+    try {
+      // 1. Update offer status to APPROVED
+      await this.dashboardService.updateOffer({
+        candidate_id: this.selectedOffer.candidate_id,
+        jr_id: this.selectedOffer.jr_id,
+        offer_date: this.selectedOffer.offer_date || new Date().toISOString().split('T')[0],
+        date_of_joining: this.selectedOffer.date_of_joining || '',
+        salary_offered: this.selectedOffer.salary_offered || '',
+        offer_letter_path: '',
+        offer_status: 'APPROVED',
+        approval_status: 'APPROVED',
+        offer_sent_date: new Date().toISOString().split('T')[0],
+        candidate_response_date: ''
+      });
+
+      // 2. Send offer letter email if candidate has email
+      if (this.selectedOffer.email) {
+        const htmlBody = this.buildOfferLetterHTML(this.selectedOffer);
+        await this.dashboardService.sendOfferEmail(
+          this.selectedOffer.email,
+          this.selectedOffer.candidate_name,
+          `Offer Letter - ${this.selectedOffer.job_title} | Adnate IT Solutions`,
+          htmlBody
+        );
+      }
+
+      // 3. Update local state
+      this.selectedOffer.approval_status = 'APPROVED';
+      this.selectedOffer.offer_status = 'APPROVED';
+      this.showToast2('Offer approved and email sent successfully!', 'success');
+      this.closeOfferDetailModal();
+      this.loadAllData(); // refresh
+    } catch (e) {
+      console.error('[Leadership] Error approving offer:', e);
+      this.showToast2('Failed to approve offer. Please try again.', 'error');
+    } finally {
+      this.isProcessingOffer = false;
+    }
+  }
+
+  async rejectOffer() {
+    if (!this.selectedOffer || this.isProcessingOffer) return;
+    if (!confirm(`Are you sure you want to reject the offer for ${this.selectedOffer.candidate_name}?`)) return;
+    this.isProcessingOffer = true;
+
+    try {
+      await this.dashboardService.updateOffer({
+        candidate_id: this.selectedOffer.candidate_id,
+        jr_id: this.selectedOffer.jr_id,
+        offer_date: this.selectedOffer.offer_date || '',
+        date_of_joining: this.selectedOffer.date_of_joining || '',
+        salary_offered: this.selectedOffer.salary_offered || '',
+        offer_letter_path: '',
+        offer_status: 'REJECTED',
+        approval_status: 'REJECTED',
+        offer_sent_date: '',
+        candidate_response_date: ''
+      });
+
+      // Send rejection notification if email exists
+      if (this.selectedOffer.email) {
+        await this.dashboardService.sendOfferEmail(
+          this.selectedOffer.email,
+          this.selectedOffer.candidate_name,
+          `Application Update - ${this.selectedOffer.job_title} | Adnate IT Solutions`,
+          `<div style="font-family:'Inter',Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 24px;">
+            <div style="background:#0B2265;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:#fff;margin:0;font-size:20px;">Adnate IT Solutions</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e1e8ed;border-top:none;border-radius:0 0 12px 12px;">
+              <h2 style="color:#0B2265;margin-top:0;">Dear ${this.selectedOffer.candidate_name},</h2>
+              <p style="color:#4a5d75;line-height:1.7;">Thank you for your interest in the position of <strong>${this.selectedOffer.job_title}</strong> at Adnate IT Solutions.</p>
+              <p style="color:#4a5d75;line-height:1.7;">After careful review, we regret to inform you that we will not be moving forward with the offer at this time.</p>
+              <p style="color:#4a5d75;line-height:1.7;">We appreciate the time you invested and encourage you to apply for future openings.</p>
+              <br>
+              <p style="color:#4a5d75;">Best regards,<br><strong>HR Team</strong><br>Adnate IT Solutions</p>
+            </div>
+          </div>`
+        );
+      }
+
+      this.selectedOffer.approval_status = 'REJECTED';
+      this.selectedOffer.offer_status = 'REJECTED';
+      this.showToast2('Offer rejected successfully.', 'success');
+      this.closeOfferDetailModal();
+      this.loadAllData();
+    } catch (e) {
+      console.error('[Leadership] Error rejecting offer:', e);
+      this.showToast2('Failed to reject offer. Please try again.', 'error');
+    } finally {
+      this.isProcessingOffer = false;
+    }
+  }
+
+  private buildOfferLetterHTML(offer: any): string {
+    const candidateName = offer.candidate_name || 'Candidate';
+    const jobTitle = offer.job_title || 'Employee';
+    const salary = offer.salary_offered || 'as discussed';
+    const doj = offer.date_of_joining
+      ? new Date(offer.date_of_joining).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+      : 'a date to be decided';
+    const offerDate = offer.offer_date
+      ? new Date(offer.offer_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+      : new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    return `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:680px;margin:0 auto;background:#f8faff;">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#0B2265 0%,#132d7a 100%);padding:32px 40px;border-radius:12px 12px 0 0;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(0,196,240,0.15);"></div>
+        <div style="position:absolute;bottom:-20px;left:40%;width:80px;height:80px;border-radius:50%;background:rgba(0,196,240,0.08);"></div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
+          <tr>
+            <td>
+              <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800;letter-spacing:-0.5px;">Adnate IT Solutions</h1>
+              <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:12px;">2nd Floor, SLC Building, Amrapali Circle, Vaishali Nagar, Jaipur, Rajasthan</p>
+            </td>
+            <td style="text-align:right;">
+              <span style="background:rgba(0,196,240,0.2);color:#00C4F0;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:0.5px;">OFFER LETTER</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Body -->
+      <div style="background:#fff;padding:40px;border-left:1px solid #e1e8ed;border-right:1px solid #e1e8ed;">
+        <p style="color:#8899a8;font-size:13px;margin:0 0 24px;">Date: ${offerDate}</p>
+
+        <h2 style="color:#0B2265;font-size:18px;margin:0 0 8px;">Dear ${candidateName},</h2>
+
+        <p style="color:#4a5d75;line-height:1.8;font-size:14px;">
+          We are thrilled to formally offer you the position of <strong style="color:#0B2265;">${jobTitle}</strong> at <strong>Adnate IT Solutions</strong>.
+          Based on our discussions and your interviews, we are confident you will be a great addition to our team.
+        </p>
+
+        <!-- Offer Details Card -->
+        <div style="background:linear-gradient(135deg,#f0f4ff 0%,#e8f7fc 100%);border-radius:12px;padding:24px;margin:24px 0;border:1px solid rgba(0,196,240,0.15);">
+          <h3 style="color:#0B2265;margin:0 0 16px;font-size:15px;">Offer Details</h3>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;">
+                <span style="color:#8899a8;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Position</span><br>
+                <span style="color:#0f1f3d;font-size:14px;font-weight:600;">${jobTitle}</span>
+              </td>
+              <td style="padding:8px 0;">
+                <span style="color:#8899a8;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Start Date</span><br>
+                <span style="color:#0f1f3d;font-size:14px;font-weight:600;">${doj}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;" colspan="2">
+                <span style="color:#8899a8;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Annual Compensation (TTC)</span><br>
+                <span style="color:#10B981;font-size:18px;font-weight:800;">Rs. ${salary}/-</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="color:#4a5d75;line-height:1.8;font-size:14px;">
+          This offer is contingent upon the successful completion of a background check, reference checks, and verification of your employment eligibility.
+          Please let us know if you require any further details prior to your date of joining.
+        </p>
+
+        <p style="color:#4a5d75;line-height:1.8;font-size:14px;">
+          We are excited to welcome you aboard to Adnate IT Solutions and look forward to building great products together.
+        </p>
+
+        <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e1e8ed;">
+          <p style="color:#0f1f3d;font-weight:600;margin:0;">Sincerely,</p>
+          <p style="color:#4a5d75;margin:8px 0 0;">Human Resources<br><strong style="color:#0B2265;">Adnate IT Solutions</strong></p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="background:#0B2265;padding:20px 40px;border-radius:0 0 12px 12px;text-align:center;">
+        <p style="color:rgba(255,255,255,0.5);font-size:11px;margin:0;">
+          This is a confidential document and is electronically generated. | hr@adnateitsolutions.com
+        </p>
+      </div>
+    </div>`;
+  }
+
+  showToast2(message: string, type: 'success' | 'error') {
+    this.toastMessage = message;
+    this.toastType = type;
+    this.showToastFlag = true;
+    setTimeout(() => this.showToastFlag = false, 4000);
   }
 
   logout() {

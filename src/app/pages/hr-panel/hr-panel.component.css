@@ -279,7 +279,7 @@ ul {
   transition: color 0.2s;
 }
 .logout-action:hover {
-  color: #FFFFFF !important;
+  color: #ef4444 !important;
 }
 
 .menu-item-internal {

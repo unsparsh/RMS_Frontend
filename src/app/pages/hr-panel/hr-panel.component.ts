@@ -21,6 +21,7 @@ export class HrPanelComponent implements OnInit {
   isSidebarCollapsed = false;
   activeTab = 'Dashboard';
   isGeneratingReport = false;
+  currentDate = new Date();
 
   // --- Job Requisition Form Model ---
   requisition = {
@@ -45,15 +46,54 @@ export class HrPanelComponent implements OnInit {
   showToastMsg = false;
   toastMessage = '';
   toastType: 'success' | 'error' = 'success';
+  loggedInAdminName = 'HR';
+  loggedInAdminFullName = 'HR Admin';
+  loggedInAdminInitial = 'H';
 
   constructor(private heroService: HeroService, private auth: AuthService, private router: Router, private http: HttpClient) {}
 
   ngOnInit() {
+    this.resolveLoggedInUser();
     this.loadJobs();
     this.loadInterviewPanels();
     this.loadCandidates();
     this.loadInterviewsAndPanels();
     this.loadReferrals();
+    this.loadOfferedApplications();
+  }
+
+  async resolveLoggedInUser() {
+    let emailOrId = '';
+    if (typeof sessionStorage !== 'undefined') {
+      emailOrId = sessionStorage.getItem('displayName') || '';
+    }
+    if (!emailOrId) return;
+
+    // Use fallback first
+    this.loggedInAdminFullName = emailOrId;
+    this.loggedInAdminName = emailOrId.split('@')[0]; // Quick fallback for emails
+    this.loggedInAdminInitial = this.loggedInAdminName.charAt(0).toUpperCase();
+
+    try {
+      const resp = await this.heroService.getEmployees();
+      let arr = this.heroService.xmltojson(resp, 'employee');
+      if (!arr) return;
+      if (!Array.isArray(arr)) arr = [arr];
+
+      const me = arr.find((e: any) => 
+        (e.email || '').toLowerCase() === emailOrId.toLowerCase() ||
+        (this.getExt(e.employee_id) || '').toLowerCase() === emailOrId.toLowerCase() ||
+        (e.employee_name || '').toLowerCase() === emailOrId.toLowerCase()
+      );
+
+      if (me && me.employee_name) {
+        this.loggedInAdminFullName = me.employee_name;
+        this.loggedInAdminName = me.employee_name.split(' ')[0];
+        this.loggedInAdminInitial = this.loggedInAdminName.charAt(0).toUpperCase();
+      }
+    } catch (e) {
+      console.warn('Could not resolve logged in HR name via getEmployees', e);
+    }
   }
 
   logout(): void {
@@ -908,7 +948,7 @@ export class HrPanelComponent implements OnInit {
     try {
       const [candidatesResp, applicationsResp] = await Promise.all([
         this.heroService.getCandidates(),
-        this.heroService.getCandidateApplications()
+        this.heroService.getCandidateJobApplications() // Use new WS to fetch temp1/temp2 dynamically
       ]);
 
       const candidatesData = this.heroService.xmltojson(candidatesResp, 'tuple');
@@ -934,7 +974,7 @@ export class HrPanelComponent implements OnInit {
         const candidate = candidateMap.get(candidateId) || {};
 
         const stage = ext(app.stage) || 'applied';
-        const name = ext(candidate.name) || ext(candidate.candidate_name) || `Candidate ${candidateId}`;
+        const name = ext(app.candidate?.temp1) || ext(candidate.name) || ext(candidate.candidate_name) || `Candidate ${candidateId}`;
         const nameParts = name.split(' ');
         const initials = nameParts.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
 
@@ -946,7 +986,7 @@ export class HrPanelComponent implements OnInit {
           candidate_id: candidateId,
           name: name,
           avatar: initials,
-          role: ext(candidate.designation) || ext(candidate.position) || 'Not specified',
+          role: ext(app.job_requisition?.temp2) || ext(candidate.designation) || ext(candidate.position) || 'Not specified',
           department: ext(app.department) || ext(candidate.department) || 'General',
           stage: stage.toLowerCase(),
           appliedDate: ext(app.applied_date) || ext(app.created_at) || new Date().toISOString().split('T')[0],
@@ -1172,6 +1212,294 @@ export class HrPanelComponent implements OnInit {
   // For backward compatibility with template
   get employees() {
     return this.referralEmployees;
+  }
+
+  // --- Offer Tracker ---
+  isLoadingOffers = false;
+  offeredCandidatesList: any[] = [];
+  offerSearchQuery = '';
+
+  showCreateOfferModal = false;
+  showPreviewOfferModal = false;
+  selectedOfferCandidate: any = null;
+  selectedOfferJob: any = null;
+
+  offerForm = {
+    offer_date: '',
+    offer_sent_date: '',
+    candidate_response_date: '',
+    date_of_joining: '',
+    salary_offered: '',
+    offer_letter_path: '/generated/offer_letter.pdf',
+    offer_status: 'DRAFT',
+    approval_status: 'PENDING'
+  };
+
+  get filteredOffers() {
+    if (!this.offerSearchQuery.trim()) return this.offeredCandidatesList;
+    const q = this.offerSearchQuery.toLowerCase();
+    return this.offeredCandidatesList.filter(o => 
+      this.getExt(o.raw?.candidate_name).toLowerCase().includes(q) ||
+      this.getExt(o.raw?.candidate_id).toLowerCase().includes(q) ||
+      this.getExt(o.raw?.jr_id).toLowerCase().includes(q)
+    );
+  }
+
+  async loadOfferedApplications() {
+    this.isLoadingOffers = true;
+    try {
+      const resp = await this.heroService.getOfferedApplications();
+      let data = this.heroService.xmltojson(resp, 'tuple');
+      if (!data) data = this.heroService.xmltojson(resp, 'candidate_job_application');
+      if (!data) data = [];
+      const arr = Array.isArray(data) ? data : [data];
+      
+      this.offeredCandidatesList = arr.map((t: any) => {
+        const rawApp = t.old?.candidate_job_application || t.new?.candidate_job_application || t.candidate_job_application || t;
+        const candidateId = this.getExt(rawApp.candidate_id);
+        const jrId = this.getExt(rawApp.jr_id);
+        
+        // Find matching candidate details if possible
+        const matchedCandidate = this.candidates.find((c: any) => c.candidate_id === candidateId) || {};
+        const jobTitleFallback = this.getExt(rawApp.job_requisition?.temp2) || matchedCandidate.role || 'Unknown Position';
+        
+        return {
+          raw: {
+            ...rawApp,
+            candidate_name: this.getExt(rawApp.candidate?.temp1) || matchedCandidate.name || `Candidate ${candidateId}`,
+            job_title: jobTitleFallback
+          },
+          candidate_id: candidateId,
+          jr_id: jrId
+        };
+      }).filter((o: any) => o.raw && Object.keys(o.raw).length > 0);
+      
+      console.log('[HrPanel] Loaded offered applications:', this.offeredCandidatesList);
+    } catch (e) {
+      console.error('[HrPanel] Error loading offered applications:', e);
+    } finally {
+      this.isLoadingOffers = false;
+    }
+  }
+
+  openCreateOfferModal(offerCand: any) {
+    this.selectedOfferCandidate = offerCand;
+    const jrId = offerCand.jr_id;
+    this.selectedOfferJob = this.jobsList.find(j => j.jr_id === jrId) || { job_title: offerCand.raw.job_title || 'Unknown Position', department: 'Unknown' };
+    
+    // Reset form
+    this.offerForm = {
+      offer_date: new Date().toISOString().split('T')[0],
+      offer_sent_date: '',
+      candidate_response_date: '',
+      date_of_joining: '',
+      salary_offered: '',
+      offer_letter_path: 'draft_offer.pdf',
+      offer_status: 'DRAFT',
+      approval_status: 'PENDING'
+    };
+    
+    this.showCreateOfferModal = true;
+  }
+
+  closeCreateOfferModal() {
+    this.showCreateOfferModal = false;
+    this.selectedOfferCandidate = null;
+    this.selectedOfferJob = null;
+  }
+
+  async submitCreateOffer() {
+    if (!this.offerForm.salary_offered) {
+      this.showToast('Salary is a required field', 'error');
+      return;
+    }
+    
+    try {
+      const candId = this.selectedOfferCandidate.candidate_id;
+      const jrId = this.selectedOfferCandidate.jr_id;
+      
+      await this.heroService.updateOffer({
+        candidate_id: candId,
+        jr_id: jrId,
+        ...this.offerForm
+      });
+      
+      this.showToast('Offer details successfully saved!', 'success');
+      
+      // Close create modal and open preview modal
+      this.showCreateOfferModal = false;
+      this.showPreviewOfferModal = true;
+      
+    } catch (e) {
+      console.error('Error submitting offer', e);
+      this.showToast('Failed to save offer details.', 'error');
+    }
+  }
+
+  closePreviewOfferModal() {
+    this.showPreviewOfferModal = false;
+    this.selectedOfferCandidate = null;
+    this.selectedOfferJob = null;
+  }
+
+  getBase64ImageFromUrl(imageUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject('No canvas context');
+        }
+      };
+      img.onerror = error => reject(error);
+      img.src = imageUrl;
+    });
+  }
+
+  async generateOfferLetter() {
+    try {
+      this.showToast('Generating Offer Letter...', 'success');
+      const doc = new jsPDF();
+      
+      let logoBase64 = '';
+      try {
+        logoBase64 = await this.getBase64ImageFromUrl('assets/images/adnate-logo.png');
+      } catch (err) {
+        console.warn('Could not load logo image for PDF:', err);
+      }
+
+      // --- Thematic Backgrounds ---
+      const primaryColor: [number, number, number] = [11, 34, 101]; // #0B2265
+      const secondaryColor: [number, number, number] = [0, 196, 240]; // #00C4F0
+      
+      // Very light background wash
+      doc.setFillColor(248, 250, 255);
+      doc.rect(0, 0, 210, 297, 'F');
+      
+      // Top corner geometric branding
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.triangle(0, 0, 90, 0, 0, 60, 'F');
+      doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.triangle(0, 60, 0, 65, 8, 60, 'F');
+
+      // Bottom right geometric branding
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.triangle(210, 297, 120, 297, 210, 237, 'F');
+      doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.triangle(210, 237, 210, 232, 202, 237, 'F');
+      
+      const candidateName = this.getExt(this.selectedOfferCandidate?.raw?.candidate_name) || 'Candidate';
+      const jobTitle = this.selectedOfferJob?.job_title || 'Employee';
+      const companyName = 'Adnate IT Solutions';
+      const salary = this.offerForm.salary_offered;
+      const doj = this.offerForm.date_of_joining ? new Date(this.offerForm.date_of_joining).toLocaleDateString() : 'a date to be decided';
+      const offerDate = this.offerForm.offer_date ? new Date(this.offerForm.offer_date).toLocaleDateString() : new Date().toLocaleDateString();
+
+      // Header content
+      if (logoBase64) {
+        // Adjust width & height as needed for the logo
+        doc.addImage(logoBase64, 'PNG', 145, 15, 45, 12);
+      } else {
+        doc.setFontSize(22);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(companyName, 190, 25, { align: 'right' });
+      }
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('2nd Floor,SLC Building,Amrapali Circle,Vaishali Nagar,Jaipur, Rajasthan, India', 190, 35, { align: 'right' });
+      doc.text('Email: hr@adnateitsolutions.com | Phone: +91-800-123-4567', 190, 40, { align: 'right' });
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, 48, 190, 48);
+
+      // Date & Recipient
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Date: ${offerDate}`, 20, 60);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`To: ${candidateName}`, 20, 72);
+
+      // Subject
+      doc.text(`Subject: Offer of Employment - ${jobTitle}`, 20, 84);
+
+      // Body Text
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      
+      const bodyLines = [
+        `Dear ${candidateName},`,
+        '',
+        `We are thrilled to formally offer you the position of ${jobTitle} at ${companyName}.`,
+        `Based on our discussions and your interviews, we are confident you will be a great addition`,
+        `to our team.`,
+        '',
+        `Position: ${jobTitle}`,
+        `Start Date: ${doj}`,
+        `Compensation: Your annual Total Target Cash (TTC) compensation will be Rs. ${salary}/- .`,
+        '',
+        `This offer is contingent upon the successful completion of a background check, reference`,
+        `checks, and verification of your employment eligibility. Please let us know if you require any`,
+        `further details prior to your date of joining.`,
+        '',
+        `We are excited to welcome you aboard to ${companyName} and look forward to building`,
+        `great products together.`,
+        '',
+        `Sincerely,`,
+        '',
+        `Human Resources`,
+        `${companyName}`
+      ];
+
+      doc.text(bodyLines, 20, 100);
+      
+      // Footer
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.text('This is a highly confidential document and is electronically generated.', 105, 280, { align: 'center' });
+
+      // Save
+      const safeName = candidateName.replace(/\s+/g, '_');
+      doc.save(`OfferLetter_${safeName}.pdf`);
+      
+      this.showToast('Offer Letter PDF generated successfully.', 'success');
+    } catch (err) {
+      console.error('Error creating offer letter PDF:', err);
+      this.showToast('Failed to generate PDF.', 'error');
+    }
+  }
+
+  async sendOfferForApproval() {
+    try {
+      const candId = this.selectedOfferCandidate.candidate_id;
+      const jrId = this.selectedOfferCandidate.jr_id;
+      
+      // Dynamically override statuses for approval send
+      this.offerForm.offer_status = 'PENDING';
+      this.offerForm.approval_status = 'PENDING';
+
+      await this.heroService.updateOffer({
+        candidate_id: candId,
+        jr_id: jrId,
+        ...this.offerForm
+      });
+      
+      this.showToast('Offer status changed to PENDING and sent for approval successfully!', 'success');
+      this.closePreviewOfferModal();
+      this.loadOfferedApplications(); // reload the data
+    } catch (e) {
+      console.error('Error sending offer for approval:', e);
+      this.showToast('Failed to send offer for approval.', 'error');
+    }
   }
 
   // --- Jobs List ---

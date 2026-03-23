@@ -524,6 +524,14 @@ export class HeroService {
     });
   }
 
+  getCandidateJobApplications(): Promise<any> {
+    return this.ajax('GetCandidateJobApplications', 'http://schemas.cordys.com/RMS_DB_Metadata', {
+      preserveSpace: 'no',
+      qAccess: '0',
+      qValues: ''
+    });
+  }
+
   updateCandidateApplication(oldApp: any, newApp: any): Promise<any> {
     const ext = (field: any) => field?.text || field?.['#text'] || field || '';
     const payload = {
@@ -1086,6 +1094,43 @@ export class HeroService {
       }
     };
     return this.ajax('UpdateEmployee_referral', 'http://schemas.cordys.com/RMS_DB_Metadata', payload);
+  }
+
+  // ===================== OFFER TRACKER SERVICES =====================
+
+  getOfferedApplications(): Promise<any> {
+    const payload = {
+      preserveSpace: 'no',
+      qAccess: '0',
+      qValues: ''
+    };
+    return this.ajax('GetOfferedApplications', 'http://schemas.cordys.com/RMS_DB_Metadata', payload);
+  }
+
+  updateOffer(data: any): Promise<any> {
+    const payload = {
+      reply: 'yes',
+      commandUpdate: 'no',
+      preserveSpace: 'no',
+      batchUpdate: 'no',
+      tuple: {
+        new: {
+          offer: {
+            candidate_id: data.candidate_id || '',
+            jr_id: data.jr_id || '',
+            offer_date: data.offer_date || '',
+            offer_sent_date: data.offer_sent_date || '',
+            candidate_response_date: data.candidate_response_date || '',
+            date_of_joining: data.date_of_joining || '',
+            salary_offered: data.salary_offered || '',
+            offer_letter_path: data.offer_letter_path || '',
+            offer_status: data.offer_status || '',
+            approval_status: data.approval_status || 'PENDING'
+          }
+        }
+      }
+    };
+    return this.ajax('UpdateOffer', 'http://schemas.cordys.com/RMS_DB_Metadata', payload);
   }
 
 }

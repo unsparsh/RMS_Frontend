@@ -209,4 +209,52 @@ export class LeadershipDashboardService {
       return [];
     }
   }
+
+  // ─── Candidate Job Applications (with candidate name + job title via temp1/temp2) ───
+  async getCandidateJobApplications(): Promise<any[]> {
+    try {
+      const resp = await this.hero.ajax('GetCandidateJobApplications', NAMESPACE, {
+        preserveSpace: 'no',
+        qAccess: '0',
+        qValues: ''
+      });
+      return this.extractTuples(resp, 'candidate_job_application');
+    } catch (e) {
+      console.error('[DashboardService] GetCandidateJobApplications failed:', e);
+      return [];
+    }
+  }
+
+  // ─── Offered Applications (for offer letter approvals) ───
+  async getOfferedApplications(): Promise<any[]> {
+    try {
+      const resp = await this.hero.ajax('GetOfferedApplications', NAMESPACE, {
+        preserveSpace: 'no',
+        qAccess: '0',
+        qValues: ''
+      });
+      return this.extractTuples(resp, 'candidate_job_application');
+    } catch (e) {
+      console.error('[DashboardService] GetOfferedApplications failed:', e);
+      return [];
+    }
+  }
+
+  // ─── Update Offer Status ───
+  async updateOffer(data: any): Promise<any> {
+    return this.hero.updateOffer(data);
+  }
+
+  // ─── Send Offer Email ───
+  async sendOfferEmail(toEmail: string, toName: string, subject: string, htmlBody: string): Promise<any> {
+    return this.hero.sendMail(
+      toEmail,
+      toName,
+      '', '',
+      subject,
+      htmlBody,
+      'Adnate IT Solutions - HR',
+      'hr@adnateitsolutions.com'
+    );
+  }
 }
