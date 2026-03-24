@@ -143,7 +143,7 @@ export class LeadershipDashboardComponent implements OnInit {
         this.dashboardService.getInterviews(),
         this.dashboardService.getOffers(),
         this.dashboardService.getCandidateJobApplications(),
-        this.dashboardService.getOfferedApplications()
+        this.dashboardService.getPendingOffers()
       ]);
 
       // Separate active jobs from pending approvals
@@ -217,23 +217,22 @@ export class LeadershipDashboardComponent implements OnInit {
       this.offeredCandidates = (offeredResp || []).map((o: any) => {
         const candidateId = o.candidate_id || '';
         const jrId = o.jr_id || '';
-        const candidateName = o.candidate?.temp1 || candidateId || 'Unknown';
-        const jobTitle = o.job_requisition?.temp2 || jrId || 'Unknown Position';
-
+        
         // Enrich with candidate master data
         const cand = this.candidates.find(c => c.candidate_id === candidateId) || {} as any;
-        // Enrich with offer details
-        const offerData = this.offers.find((of: any) =>
-          (of.candidate_id || '') === candidateId && (of.jr_id || '') === jrId
-        ) || {} as any;
+        const candidateName = cand.name || candidateId || 'Unknown';
+        
+        // Enrich with job info
+        const jobInfo = allJobs.find(j => j.jr_id === jrId) || {} as any;
+        const jobTitle = jobInfo.job_title || jrId || 'Unknown Position';
 
         return {
           candidate_id: candidateId,
           jr_id: jrId,
           candidate_name: candidateName,
           job_title: jobTitle,
-          application_status: o.application_status || 'OFFERED',
-          stage: o.stage || 'offered',
+          application_status: 'OFFERED',
+          stage: 'offered',
           // Candidate details
           email: cand.email || '',
           phone: cand.phone || '',
@@ -241,12 +240,12 @@ export class LeadershipDashboardComponent implements OnInit {
           experience: cand.experience || 0,
           education: cand.education || '',
           // Offer details
-          offer_id: offerData.offer_id || '',
-          offer_date: offerData.offer_date || '',
-          date_of_joining: offerData.date_of_joining || '',
-          salary_offered: offerData.salary_offered || '',
-          offer_status: offerData.offer_status || '',
-          approval_status: offerData.approval_status || 'PENDING',
+          offer_id: o.offer_id || '',
+          offer_date: o.offer_date || '',
+          date_of_joining: o.date_of_joining || '',
+          salary_offered: o.salary_offered || '',
+          offer_status: o.offer_status || '',
+          approval_status: o.approval_status || 'PENDING',
           raw: o
         };
       });
@@ -723,6 +722,7 @@ export class LeadershipDashboardComponent implements OnInit {
       // 3. Update local state
       this.selectedOffer.approval_status = 'APPROVED';
       this.selectedOffer.offer_status = 'APPROVED';
+      this.offeredCandidates = this.offeredCandidates.filter(c => c.offer_id !== offerId);
 
       // 4. Hide loader and show success toast
       this.isApprovalLoading = false;
@@ -732,7 +732,8 @@ export class LeadershipDashboardComponent implements OnInit {
         this.showToast2('Offer approved! (Email could not be sent — check recipient address)', 'success');
       }
       this.selectedOffer = null;
-      this.loadAllData(); // refresh
+      // We removed it locally so no need to reload unless explicitly wanted, but it ensures exact match if done.
+      // this.loadAllData();
     } catch (e) {
       console.error('[Leadership] Error approving offer:', e);
       this.isApprovalLoading = false;
@@ -795,13 +796,16 @@ export class LeadershipDashboardComponent implements OnInit {
 
       this.selectedOffer.approval_status = 'REJECTED';
       this.selectedOffer.offer_status = 'REJECTED';
+      this.offeredCandidates = this.offeredCandidates.filter((c: any) => c.offer_id !== offerId);
+
       if (emailSent) {
         this.showToast2('Offer rejected successfully and the candidate was notified.', 'success');
       } else {
         this.showToast2('Offer rejected! (Rejection email could not be sent to test/invalid address)', 'success');
       }
+      
       this.closeOfferDetailModal();
-      this.loadAllData();
+      // this.loadAllData(); // Instead of reloading, we already filtered it out
     } catch (e) {
       console.error('[Leadership] Error rejecting offer:', e);
       this.showToast2('Failed to reject offer. Please try again.', 'error');

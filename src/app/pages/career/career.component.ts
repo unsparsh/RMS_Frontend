@@ -16,10 +16,12 @@ export class CareerComponent implements OnInit {
   filteredJobs: any[] = [];
   searchQuery = '';
   loading = true;
+  isLoggedIn = false;
 
   constructor(private heroService: HeroService) { }
 
   ngOnInit() {
+    this.isLoggedIn = sessionStorage.getItem('isAuthenticated') === 'true';
     this.fetchJobs();
   }
 

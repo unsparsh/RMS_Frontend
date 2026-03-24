@@ -1593,7 +1593,7 @@ export class HrPanelComponent implements OnInit {
       no_of_positions: ext(job.raw.no_of_positions) || '1',
       priority: ext(job.raw.priority) || 'Medium',
       status: ext(job.raw.status) || 'Open',
-      approval_status: ext(job.raw.approval_status) || 'Pending',
+      approval_status: ext(job.raw.approval_status) || 'PENDING',
       closing_date: ext(job.raw.closing_date)
     };
     this.showToast(`Switched to editing mode for ${job.title}`, 'success');
