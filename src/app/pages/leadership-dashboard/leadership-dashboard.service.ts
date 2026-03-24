@@ -240,6 +240,21 @@ export class LeadershipDashboardService {
     }
   }
 
+  // ─── Pending Offers ───
+  async getPendingOffers(): Promise<any[]> {
+    try {
+      const resp = await this.hero.ajax('GetPendingOffers', NAMESPACE, {
+        preserveSpace: 'no',
+        qAccess: '0',
+        qValues: ''
+      });
+      return this.extractTuples(resp, 'offer');
+    } catch (e) {
+      console.error('[DashboardService] GetPendingOffers failed:', e);
+      return [];
+    }
+  }
+
   // ─── Update Offer Status ───
   async updateOffer(offerId: string, data: any): Promise<any> {
     return this.hero.updateOfferById(offerId, data);
