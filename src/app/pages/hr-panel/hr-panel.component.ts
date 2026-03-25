@@ -36,7 +36,7 @@ export class HrPanelComponent implements OnInit {
     no_of_positions: '1',
     priority: 'Medium',
     status: 'PENDING',
-    approval_status: 'Pending',
+    approval_status: 'PENDING',
     closing_date: ''
   };
   isSubmittingRequisition = false;
@@ -707,7 +707,7 @@ export class HrPanelComponent implements OnInit {
   }
 
   // --- Teams Meeting (Demo) ---
-  private readonly TEAMS_API = 'http://localhost:3001/api/teams/meeting';
+  private readonly TEAMS_API = '/api/teams/meeting';
 
   teamsMeeting = {
     subject: '',

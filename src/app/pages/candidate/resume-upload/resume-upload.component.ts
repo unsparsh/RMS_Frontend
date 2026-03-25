@@ -211,7 +211,7 @@ export class ResumeUploadComponent implements OnInit {
       // Extract Job ID to proxy through local backend and bypass CORS
       const parts = statusUrl.split('/');
       const jobId = parts[parts.length - 1];
-      const proxyUrl = `http://localhost:3001/api/apyhub/status/${jobId}`;
+      const proxyUrl = `/api/apyhub/status/${jobId}`;
       
       while (attempts < 30) {
         await new Promise(resolve => setTimeout(resolve, 3000));

@@ -13,16 +13,41 @@ export class HeroService {
    * Logout from Cordys SSO and clear session.
    */
   logoutSSO(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (typeof $ !== 'undefined' && $.cordys?.authentication?.sso) {
-        $.cordys.authentication.sso.logout()
-          .done(() => {
+    return new Promise((resolve) => {
+      // We check for $ and cordys authentication availability
+      if (typeof $ !== 'undefined' && $.cordys?.authentication && typeof $.cordys.authentication.getPreloginInfo === 'function') {
+        try {
+          // Perform a SILENT logout to avoid the 'Process Platform Login' modal
+          // triggered by $.cordys.authentication.logout()
+          $.cordys.authentication.getPreloginInfo().done((preloginInfo: any) => {
+            if (preloginInfo) {
+              // 1. Clear the assertions (deletes Cordys auth cookies like SAMLart)
+              if ($.cordys.authentication.sso && typeof $.cordys.authentication.sso.clearAssertions === 'function') {
+                $.cordys.authentication.sso.clearAssertions(preloginInfo);
+              }
+              // 2. Clear the SDK's internal login deferred so it doesn't think a session is active
+              const topWin = $.cordys.getTopLevelWindow ? $.cordys.getTopLevelWindow(window) : window;
+              if (topWin) {
+                topWin.$Cordys_LoginDef = null;
+              }
+            }
             sessionStorage.clear();
             localStorage.clear();
             resolve();
-          })
-          .fail(() => reject(new Error('Logout failed.')));
+          }).fail(() => {
+            // Even if prelogin fails, ensure local session is wiped
+            sessionStorage.clear();
+            localStorage.clear();
+            resolve();
+          });
+        } catch (e) {
+          console.warn('Silent logout failed:', e);
+          sessionStorage.clear();
+          localStorage.clear();
+          resolve();
+        }
       } else {
+        // Fallback for non-Cordys environment
         sessionStorage.clear();
         localStorage.clear();
         resolve();
@@ -140,7 +165,6 @@ export class HeroService {
    */
   sendMail(toEmail: string, toDisplayName: string, ccEmail?: string, ccDisplayName?: string, subject?: string, body?: string, fromDisplayName?: string, fromEmail?: string, replyTo?: string): Promise<any> {
     // If caller passed a plain string body, wrap it as HTML for the SendMail SOAP payload.
-    // If caller passed an object (e.g. {"@type":"html", text: '...'}), pass it through unchanged.
     const normalizedBody: any = (typeof body === 'string')
       ? { '@type': 'html', text: body }
       : (body || '');
@@ -152,12 +176,6 @@ export class HeroService {
           displayName: toDisplayName || ''
         }
       },
-      cc: {
-        address: {
-          displayName: ccDisplayName || '',
-          emailAddress: ccEmail || ''
-        }
-      },
       subject: subject || '',
       body: normalizedBody,
       from: {
@@ -166,6 +184,16 @@ export class HeroService {
         replyTo: replyTo || (fromEmail || 'no-reply@rms-system.com')
       }
     };
+
+    // Only add CC if ccEmail is provided to avoid "Invalid e-mail address" faults
+    if (ccEmail) {
+      payload.cc = {
+        address: {
+          emailAddress: ccEmail,
+          displayName: ccDisplayName || ''
+        }
+      };
+    }
 
     return this.ajax('SendMail', 'http://schemas.cordys.com/1.0/email', payload);
   }
@@ -758,6 +786,15 @@ export class HeroService {
       },
       fromJr_id: '0',
       toJr_id: 'zzzzzzzzzz'
+    });
+  }
+
+  getJobRequisitionObject(jrId: string): Promise<any> {
+    return this.ajax('GetJob_requisitionObject', 'http://schemas.cordys.com/RMS_DB_Metadata', {
+      Jr_id: jrId,
+      preserveSpace: 'no',
+      qAccess: '0',
+      qValues: ''
     });
   }
 

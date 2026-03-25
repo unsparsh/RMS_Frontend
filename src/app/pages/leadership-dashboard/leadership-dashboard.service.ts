@@ -225,20 +225,20 @@ export class LeadershipDashboardService {
     }
   }
 
-  // ─── Offered Applications (for offer letter approvals) ───
-  async getOfferedApplications(): Promise<any[]> {
-    try {
-      const resp = await this.hero.ajax('GetOfferedApplications', NAMESPACE, {
-        preserveSpace: 'no',
-        qAccess: '0',
-        qValues: ''
-      });
-      return this.extractTuples(resp, 'candidate_job_application');
-    } catch (e) {
-      console.error('[DashboardService] GetOfferedApplications failed:', e);
-      return [];
-    }
-  }
+  // ─── Pending Offers (for offer letter approvals) ───
+  // async getPendingOffers(): Promise<any[]> {
+  //   try {
+  //     const resp = await this.hero.ajax('GetPendingOffers', NAMESPACE, {
+  //       preserveSpace: 'no',
+  //       qAccess: '0',
+  //       qValues: ''
+  //     });
+  //     return this.extractTuples(resp, 'offer');
+  //   } catch (e) {
+  //     console.error('[DashboardService] GetPendingOffers failed:', e);
+  //     return [];
+  //   }
+  // }
 
   // ─── Pending Offers ───
   async getPendingOffers(): Promise<any[]> {

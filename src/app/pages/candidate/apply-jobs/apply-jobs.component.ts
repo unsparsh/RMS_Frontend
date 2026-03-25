@@ -169,13 +169,78 @@ export class ApplyJobsComponent implements OnInit {
             const companyName = jobDetails?.company || 'RMS';
             const location = jobDetails?.location || 'Not Specified';
 
-            const getEmailBody = (candidateName: string) => ({
-               '@type': 'normal',
-               text: `Dear ${candidateName},\n\nThank you for applying for the ${jobTitleForEmail} position at ${companyName}.\n\nApplication Details:\n- Job Title: ${jobTitleForEmail}\n- Job ID: ${jobId}\n- Location: ${location}\n- Status: Applied\n- Applied On: ${new Date().toLocaleDateString()}\n\nOur HR team will review your application and get back to you with the next steps shortly.\n\nBest Regards,\nRMS Recruitment Team`
-            });
+        const buildEmailBody = (candidateName: string, jobTitle: string, jobLocation: string) => `
+              <div style="font-family:'Inter', 'Segoe UI', Arial, sans-serif; max-width:650px; margin:0 auto; background-color:#f8faff; border-radius:12px; overflow:hidden; border:1px solid #e1e8ed;">
+                <!-- Header with Gradient Area -->
+                <div style="background:linear-gradient(135deg,#0B2265 0%,#132d7a 100%); padding:35px 40px; position:relative;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <h1 style="color:#fff; margin:0; font-size:24px; font-weight:800; letter-spacing:-0.5px;">Adnate IT Solutions</h1>
+                        <p style="color:rgba(255,255,255,0.7); margin:5px 0 0; font-size:12px;">Recruitment Management System (RMS)</p>
+                      </td>
+                      <td style="text-align:right;">
+                        <span style="background:rgba(0,196,240,0.2); color:#00C4F0; padding:8px 16px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Application Received</span>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
 
-            // Attempt to get candidate details from Candidates service
-            this.heroService.getCandidateObject(candidateId).then(cResp => {
+                <!-- Body Content -->
+                <div style="background-color:#ffffff; padding:40px; border-bottom:1px solid #e1e8ed;">
+                  <h2 style="color:#0B2265; font-size:20px; margin:0 0 15px;">Dear ${candidateName},</h2>
+                  <p style="color:#4a5d75; line-height:1.8; font-size:15px; margin-bottom:25px;">
+                    Thank you for your interest in joining <strong>Adnate IT Solutions</strong>. We have successfully received your application for the following position:
+                  </p>
+
+                  <!-- Application Details Card -->
+                  <div style="background:linear-gradient(135deg,#f0f4ff 0%,#e8f7fc 100%); border-radius:12px; padding:25px; margin:25px 0; border:1px solid rgba(0,196,240,0.15);">
+                    <h3 style="color:#0B2265; margin:0 0 15px; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700;">Application Details</h3>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding:10px 0;">
+                          <span style="color:#8899a8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Job Title</span><br>
+                          <span style="color:#0f1f3d; font-size:15px; font-weight:600;">${jobTitle}</span>
+                        </td>
+                        <td style="padding:10px 0;">
+                          <span style="color:#8899a8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Job ID</span><br>
+                          <span style="color:#0f1f3d; font-size:15px; font-weight:600;">${jobId}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 0;">
+                          <span style="color:#8899a8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Location</span><br>
+                          <span style="color:#0f1f3d; font-size:15px; font-weight:600;">${jobLocation}</span>
+                        </td>
+                        <td style="padding:10px 0;">
+                          <span style="color:#8899a8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Applied On</span><br>
+                          <span style="color:#0f1f3d; font-size:15px; font-weight:600;">${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <p style="color:#4a5d75; line-height:1.8; font-size:15px; margin-bottom:10px;">
+                    Our recruitment team is currently reviewing your profile and qualifications. If your background matches our requirements, we will contact you for the next steps in our hiring process.
+                  </p>
+                </div>
+
+                <!-- Footer -->
+                <div style="background-color:#f8faff; padding:30px 40px; text-align:center;">
+                  <p style="color:#8899a8; font-size:13px; margin:0;">
+                    Warm Regards,<br>
+                    <strong>Adnate IT Solutions Recruitment Team</strong>
+                  </p>
+                </div>
+              </div>
+            `;
+
+            // Step 4: Fetch Candidate & Latest Job Details in Parallel
+            Promise.all([
+               this.heroService.getCandidateObject(candidateId),
+               this.heroService.getJobRequisitionObject(jobId)
+            ]).then(([cResp, jResp]) => {
+               // Extract Candidate Info
                const cData = this.heroService.xmltojson(cResp, 'candidate');
                let finalEmail = sessionEmail;
                let finalName = 'Candidate';
@@ -183,37 +248,39 @@ export class ApplyJobsComponent implements OnInit {
                if (cData) {
                  const cObj = Array.isArray(cData) ? cData[0] : cData;
                  finalEmail = cObj.email || sessionEmail;
-                 finalName = cObj.name || finalEmail;
+                 finalName = cObj.name || cObj.fullName || finalEmail;
                }
 
+               // Extract Job Info
+               const jData = this.heroService.xmltojson(jResp, 'job_requisition');
+               let finalJobTitle = 'the position';
+               let finalLocation = 'Remote/Specified';
+
+               if (jData) {
+                 const jObj = Array.isArray(jData) ? jData[0] : jData;
+                 finalJobTitle = jObj.job_title || finalJobTitle;
+                 finalLocation = jObj.location || finalLocation;
+               }
+
+               const emailSubject = `Job Application Received: ${finalJobTitle}`;
+
+               // Step 5: Send the Email
                this.heroService.setEmailProfile().then(() => {
                  return this.heroService.sendMail(
                    finalEmail,
                    finalName,
                    'muditmwork@gmail.com',
                    'Mudit Mathur',
-                   subject,
-                   getEmailBody(finalName) as any
+                   emailSubject,
+                   buildEmailBody(finalName, finalJobTitle, finalLocation)
                  );
                }).then(() => {
-                 console.log('Job Applied email notification sent successfully.');
+                 console.log('Application confirmation email sent successfully for:', jobId);
                }).catch(err => {
-                 console.error('Failed to send Job Applied email or set profile:', err);
+                 console.error('Failed to send application email notification:', err);
                });
             }).catch(err => {
-               console.warn('Candidate fetch failed, falling back to session email', err);
-               this.heroService.setEmailProfile().then(() => {
-                 return this.heroService.sendMail(
-                   sessionEmail,
-                   sessionEmail,
-                   'muditmwork@gmail.com',
-                   'Mudit Mathur',
-                   subject,
-                   getEmailBody('Candidate') as any
-                 );
-               }).catch(mailErr => {
-                 console.error('Failed to send Job Applied email fallback:', mailErr);
-               });
+               console.warn('Metadata fetch for email failed, skipping notification', err);
             });
           })
           .catch(err => {
