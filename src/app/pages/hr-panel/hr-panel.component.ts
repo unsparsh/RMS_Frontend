@@ -27,7 +27,11 @@ export class HrPanelComponent implements OnInit {
   requisition = {
     job_title: '',
     department: 'Engineering',
+<<<<<<< HEAD
     location: 'Remote',
+=======
+    location: '',
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
     job_description: '',
     required_skills: '',
     min_experience: '',
@@ -39,9 +43,31 @@ export class HrPanelComponent implements OnInit {
     approval_status: 'PENDING',
     closing_date: ''
   };
+<<<<<<< HEAD
   isSubmittingRequisition = false;
   editingJobId: string | null = null;
 
+=======
+  availableLocations: string[] = ['Remote', 'Jaipur, Rajasthan', 'Pune, Maharashtra', 'Bangalore, Karnataka', 'Hyderabad, Telangana', 'Mumbai, Maharashtra', 'Delhi NCR', 'Chennai, Tamil Nadu', 'Kolkata, West Bengal', 'Ahmedabad, Gujarat'];
+  selectedLocations: string[] = [];
+  isSubmittingRequisition = false;
+  editingJobId: string | null = null;
+
+  toggleLocation(location: string) {
+    const index = this.selectedLocations.indexOf(location);
+    if (index > -1) {
+      this.selectedLocations.splice(index, 1);
+    } else {
+      this.selectedLocations.push(location);
+    }
+    this.requisition.location = this.selectedLocations.join(', ');
+  }
+
+  isLocationSelected(location: string): boolean {
+    return this.selectedLocations.includes(location);
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   // Toast
   showToastMsg = false;
   toastMessage = '';
@@ -240,6 +266,7 @@ export class HrPanelComponent implements OnInit {
   interviewPanelPageSize = 5;
 
   get groupedInterviewPanels() {
+<<<<<<< HEAD
     const groups: { [key: string]: any[] } = {};
     // Grouping filtered panels by interview_id
     for (const panel of this.filteredInterviewPanels) {
@@ -254,6 +281,27 @@ export class HrPanelComponent implements OnInit {
       interview_id: key,
       panels: groups[key]
     }));
+=======
+    const groups: { [key: string]: any } = {};
+    // Group interviews by interview_id and include candidate info
+    for (const interview of this.allInterviews) {
+      const iId = interview.interview_id || 'Unknown Interview';
+      groups[iId] = {
+        interview_id: iId,
+        interview: interview,
+        candidate_id: interview.candidate_id || '',
+        candidate_name: interview.candidate_name || interview.candidate_id || 'Unknown',
+        jr_id: interview.jr_id || '',
+        round: interview.round || 'N/A',
+        scheduled_date: interview.scheduled_date || 'Not scheduled',
+        scheduled_time: interview.scheduled_time || '',
+        status: interview.status || 'SCHEDULED',
+        meeting_link: interview.meeting_link || ''
+      };
+    }
+    // Return an array of grouped objects
+    return Object.keys(groups).map(key => groups[key]);
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   }
 
   get paginatedGroupedPanels() {
@@ -343,11 +391,39 @@ export class HrPanelComponent implements OnInit {
     };
   }
 
+<<<<<<< HEAD
+=======
+  showInterviewDetailsModal = false;
+  selectedInterviewDetails: any = null;
+  selectedInterviewPanels: any[] = [];
+
+  viewInterviewDetails(group: any) {
+    this.selectedInterviewDetails = group;
+    this.selectedInterviewPanels = this.getPanelsForInterview(group.interview_id);
+    this.showInterviewDetailsModal = true;
+  }
+
+  closeInterviewDetailsModal() {
+    this.showInterviewDetailsModal = false;
+    this.selectedInterviewDetails = null;
+    this.selectedInterviewPanels = [];
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   getJobTitleById(jrId: string): string {
     const job = this.jobsList.find(j => j.jr_id === jrId);
     return job ? job.job_title : '';
   }
 
+<<<<<<< HEAD
+=======
+  openMeetingLink(link: string): void {
+    if (link) {
+      window.open(link, '_blank');
+    }
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   async openAddPanelModalWithInterview() {
     this.showAddPanelModal = true;
     this.selectedJobId = '';
@@ -432,7 +508,31 @@ export class HrPanelComponent implements OnInit {
     
     this.isLoadingCandidates = true;
     try {
+<<<<<<< HEAD
       const resp = await this.heroService.getCandidatesForJob(this.selectedJobId);
+=======
+      const [resp, candidatesResp] = await Promise.all([
+        this.heroService.getCandidatesForJob(this.selectedJobId),
+        this.heroService.getCandidates()
+      ]);
+      
+      // Build candidate map for names
+      const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
+      const candArr = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
+      const candidateMap = new Map<string, any>();
+      candArr.forEach((t: any) => {
+        const c = t.old?.candidate || t.new?.candidate || t.candidate || t;
+        const candId = this.getExt(c.candidate_id);
+        if (candId) {
+          candidateMap.set(candId, {
+            name: this.getExt(c.name) || this.getExt(c.candidate_name) || candId,
+            email: this.getExt(c.email) || '',
+            phone: this.getExt(c.phone) || ''
+          });
+        }
+      });
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
       const appData = this.heroService.xmltojson(resp, 'tuple');
       const appArray = appData ? (Array.isArray(appData) ? appData : [appData]) : [];
       
@@ -440,14 +540,27 @@ export class HrPanelComponent implements OnInit {
       
       this.jobCandidates = appArray.map((a: any) => {
         const record = a.old?.candidate_job_application || a.new?.candidate_job_application || a.candidate_job_application || a;
+<<<<<<< HEAD
         const name = ext(record.candidate_name) || ext(record.candidate_id) || 'Unknown';
+=======
+        const candId = ext(record.candidate_id);
+        const candInfo = candidateMap.get(candId) || {};
+        const name = candInfo.name || ext(record.candidate_name) || candId || 'Unknown';
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
         const nameParts = name.split(' ');
         const initials = nameParts.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
         
         return {
           application_id: ext(record.application_id),
+<<<<<<< HEAD
           candidate_id: ext(record.candidate_id),
           candidate_name: name,
+=======
+          candidate_id: candId,
+          candidate_name: name,
+          candidate_email: candInfo.email,
+          candidate_phone: candInfo.phone,
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
           avatar: initials,
           applied_date: ext(record.applied_date),
           status: ext(record.application_status),
@@ -492,6 +605,19 @@ export class HrPanelComponent implements OnInit {
     return this.selectedInterviewerIds.includes(employeeId);
   }
 
+<<<<<<< HEAD
+=======
+  getSelectedCandidateNames(): string {
+    const names = this.jobCandidates
+      .filter(c => this.selectedCandidateIds.includes(c.candidate_id))
+      .map(c => c.candidate_name);
+    if (names.length <= 2) {
+      return names.join(', ');
+    }
+    return names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   async createInterviews() {
     // Validation
     if (!this.selectedJobId) {
@@ -839,7 +965,11 @@ export class HrPanelComponent implements OnInit {
   pipelineStages = [
     { id: 'applied', name: 'Applied', icon: 'fas fa-inbox', color: '#0B2265' },
     { id: 'screened', name: 'Screened', icon: 'fas fa-filter', color: '#2F4B8F' },
+<<<<<<< HEAD
     { id: 'interviewing', name: 'Interviewing', icon: 'fas fa-comments', color: '#0088A8' },
+=======
+    { id: 'interviewing', name: 'Round 1', icon: 'fas fa-comments', color: '#0088A8' },
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
     { id: 'offered', name: 'Offered', icon: 'fas fa-file-signature', color: '#00C4F0' },
     { id: 'joined', name: 'Joined', icon: 'fas fa-check-circle', color: '#10B981' }
   ];
@@ -857,6 +987,10 @@ export class HrPanelComponent implements OnInit {
 
   // Confirmation popup
   showConfirmModal = false;
+<<<<<<< HEAD
+=======
+  showAddInterviewStageModal = false;
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   pendingMove: { candidate: any; fromStage: string; toStage: string } | null = null;
 
   get filteredCandidates() {
@@ -938,6 +1072,43 @@ export class HrPanelComponent implements OnInit {
     this.draggedCandidate = null;
   }
 
+<<<<<<< HEAD
+=======
+  async confirmAddNewInterviewStage() {
+    const interviewingStages = this.pipelineStages.filter(stage => stage.id.startsWith('interviewing'));
+    const newRoundNumber = interviewingStages.length + 1;
+    const newStageId = `interviewing${newRoundNumber}`;
+    const newStageName = `Round ${newRoundNumber}`;
+
+    const newStage = { id: newStageId, name: newStageName, icon: 'fas fa-comments', color: '#0088A8' };
+
+    const interviewingIndex = this.pipelineStages.findIndex(stage => stage.id === 'interviewing');
+    this.pipelineStages.splice(interviewingIndex + interviewingStages.length, 0, newStage);
+
+    try {
+      await this.heroService.createInterview({
+        candidate_id: this.selectedCandidate.candidate_id,
+        jr_id: this.selectedCandidate.raw.application.jr_id,
+        round: newStageName,
+        scheduled_date: '',
+        scheduled_time: '',
+        meeting_link: '',
+        status: 'PENDING'
+      });
+      this.showToast('New interview stage created successfully!', 'success');
+    } catch (error) {
+      this.showToast('Failed to create new interview stage.', 'error');
+    }
+
+    this.showAddInterviewStageModal = false;
+  }
+
+
+  addInterviewStage() {
+    this.showAddInterviewStageModal = true;
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   onDragEnd() {
     this.draggedCandidate = null;
     this.dragOverStage = '';
@@ -1000,6 +1171,10 @@ export class HrPanelComponent implements OnInit {
       }).filter((c: any) => c.candidate_id && c.name);
 
       console.log('[HrPanel] Loaded candidates:', this.candidates);
+<<<<<<< HEAD
+=======
+      this.calculateApplicantCounts();
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
     } catch (e) {
       console.error('[HrPanel] Error loading candidates:', e);
       this.showToast('Failed to load candidates from server.', 'error');
@@ -1049,6 +1224,10 @@ export class HrPanelComponent implements OnInit {
   cancelMove() {
     this.pendingMove = null;
     this.showConfirmModal = false;
+<<<<<<< HEAD
+=======
+    this.showAddInterviewStageModal = false;
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   }
 
 
@@ -1568,6 +1747,10 @@ export class HrPanelComponent implements OnInit {
         });
       }
       console.log('[HrPanel] Loaded jobs:', this.jobsList);
+<<<<<<< HEAD
+=======
+      this.calculateApplicantCounts();
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
     } catch (e) {
       console.error('[HrPanel] Error loading jobs:', e);
       this.showToast('Failed to load jobs from server.', 'error');
@@ -1647,6 +1830,24 @@ export class HrPanelComponent implements OnInit {
     return filtered;
   }
 
+<<<<<<< HEAD
+=======
+  calculateApplicantCounts() {
+    if (!this.jobsList || !this.candidates) return;
+    this.jobsList.forEach(job => {
+      const targetId = String(job.id).replace(/\D/g, '');
+      job.applicants = this.candidates.filter(c => {
+        let appJrId = c.raw?.application?.jr_id;
+        if (appJrId?.text) appJrId = appJrId.text;
+        if (appJrId?.['#text']) appJrId = appJrId['#text'];
+        const currentId = String(appJrId).replace(/\D/g, '');
+        return currentId === targetId && currentId !== '';
+      }).length;
+    });
+    console.log('[HrPanel] Calculated applicant counts', this.jobsList.map(j => ({ id: j.id, title: j.title, applicants: j.applicants })));
+  }
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
   // --- Pagination Logic for Jobs ---
   jobsCurrentPage = 1;
   jobsPageSize = 5;
@@ -1687,17 +1888,54 @@ export class HrPanelComponent implements OnInit {
 
   async loadInterviewsAndPanels() {
     try {
+<<<<<<< HEAD
       const [interviewResp, panelResp] = await Promise.all([
         this.heroService.getInterviews(),
         this.heroService.getInterviewPanels()
       ]);
+=======
+      const [interviewResp, panelResp, candidatesResp] = await Promise.all([
+        this.heroService.getInterviews(),
+        this.heroService.getInterviewPanels(),
+        this.heroService.getCandidates()
+      ]);
+      
+      // Load candidates for candidate names
+      const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
+      const candArr = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
+      const candidateMap = new Map<string, any>();
+      candArr.forEach((t: any) => {
+        const c = t.old?.candidate || t.new?.candidate || t.candidate || t;
+        const candId = this.getExt(c.candidate_id);
+        if (candId) {
+          candidateMap.set(candId, {
+            name: this.getExt(c.name) || this.getExt(c.candidate_name) || candId,
+            email: this.getExt(c.email) || '',
+            phone: this.getExt(c.phone) || ''
+          });
+        }
+      });
+
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
       let intData = this.heroService.xmltojson(interviewResp, 'tuple');
       if (!intData) intData = this.heroService.xmltojson(interviewResp, 'interview');
       if (!intData) intData = [];
       const intArr = Array.isArray(intData) ? intData : [intData];
       this.allInterviews = intArr.map((t: any) => {
         const r = t.old?.interview || t.new?.interview || t.interview || t;
+<<<<<<< HEAD
         return this.flattenRecord(r);
+=======
+        const flat = this.flattenRecord(r);
+        // Add candidate info
+        const cand = candidateMap.get(flat.candidate_id);
+        if (cand) {
+          flat.candidate_name = cand.name;
+          flat.candidate_email = cand.email;
+          flat.candidate_phone = cand.phone;
+        }
+        return flat;
+>>>>>>> d0b6716032d724c91c5d67221a16603139fd5126
       }).filter((i: any) => i.interview_id);
 
       let panData = this.heroService.xmltojson(panelResp, 'tuple');
