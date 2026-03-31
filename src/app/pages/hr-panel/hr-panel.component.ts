@@ -255,6 +255,18 @@ export class HrPanelComponent implements OnInit {
   interviewPanelCurrentPage = 1;
   interviewPanelPageSize = 5;
 
+  // --- Accordion State (both closed by default) ---
+  activeInterviewsAccordionOpen = false;
+  scheduledInterviewsAccordionOpen = false;
+
+  toggleActiveInterviewsAccordion() {
+    this.activeInterviewsAccordionOpen = !this.activeInterviewsAccordionOpen;
+  }
+
+  toggleScheduledInterviewsAccordion() {
+    this.scheduledInterviewsAccordionOpen = !this.scheduledInterviewsAccordionOpen;
+  }
+
   get groupedInterviewPanels() {
     const groups: { [key: string]: any } = {};
     // Group interviews by interview_id and include candidate info
@@ -274,7 +286,53 @@ export class HrPanelComponent implements OnInit {
       };
     }
     // Return an array of grouped objects
-    return Object.keys(groups).map(key => groups[key]);
+    let result = Object.keys(groups).map(key => groups[key]);
+
+    // Apply search filter across both accordions
+    if (this.panelSearchQuery.trim()) {
+      const q = this.panelSearchQuery.toLowerCase();
+      result = result.filter(g =>
+        (g.candidate_name || '').toLowerCase().includes(q) ||
+        (g.interview_id || '').toLowerCase().includes(q) ||
+        (g.jr_id || '').toLowerCase().includes(q) ||
+        (g.round || '').toLowerCase().includes(q) ||
+        (g.status || '').toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }
+
+  /** Active = scheduled_date is today or in the past */
+  get activeInterviewPanels() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return this.groupedInterviewPanels.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return true; // treat unscheduled as active
+      const d = new Date(g.scheduled_date);
+      return d <= today;
+    });
+  }
+
+  /** Scheduled for later = scheduled_date is in the future */
+  get scheduledLaterInterviewPanels() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return this.groupedInterviewPanels.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
+      const d = new Date(g.scheduled_date);
+      return d > today;
+    });
+  }
+
+  get paginatedActiveInterviewPanels() {
+    const start = (this.interviewPanelCurrentPage - 1) * this.interviewPanelPageSize;
+    return this.activeInterviewPanels.slice(start, start + this.interviewPanelPageSize);
+  }
+
+  get paginatedScheduledInterviewPanels() {
+    const start = (this.interviewPanelCurrentPage - 1) * this.interviewPanelPageSize;
+    return this.scheduledLaterInterviewPanels.slice(start, start + this.interviewPanelPageSize);
   }
 
   get paginatedGroupedPanels() {
