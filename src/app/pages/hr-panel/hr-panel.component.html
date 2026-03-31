@@ -137,13 +137,6 @@
             <div class="kpi-value">7</div>
             <div class="kpi-trend negative"><i class="fas fa-clock"></i> 3 overdue</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title"><i class="fas fa-tachometer-alt"></i> Time-to-Hire</span>
-            </div>
-            <div class="kpi-value">18d</div>
-            <div class="kpi-trend positive"><i class="fas fa-arrow-down"></i> -2 days avg</div>
-          </div>
         </div>
 
         <!-- Dashboard Widgets -->
@@ -364,12 +357,19 @@
 
               <div class="form-row">
                 <div class="form-group half-width">
-                  <label>Location</label>
-                  <select class="form-input">
-                    <option>Remote</option>
-                    <option>London, UK</option>
-                    <option>New York, USA</option>
-                  </select>
+                  <label>Location(s) <span style="font-weight: 400; color: #64748B; font-size: 0.8rem;">— select multiple</span></label>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; background: #F8FAFC; max-height: 140px; overflow-y: auto;">
+                    <label *ngFor="let loc of availableLocations" 
+                           (click)="toggleLocation(loc)" 
+                           style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; border: 1px solid #E2E8F0;"
+                           [style.background]="isLocationSelected(loc) ? '#0B2265' : '#FFFFFF'"
+                           [style.color]="isLocationSelected(loc) ? '#FFFFFF' : '#475569'"
+                           [style.borderColor]="isLocationSelected(loc) ? '#0B2265' : '#E2E8F0'">
+                      <i class="fas" [class.fa-check-circle]="isLocationSelected(loc)" [class.fa-circle]="!isLocationSelected(loc)" style="font-size: 0.7rem;"></i>
+                      {{ loc }}
+                    </label>
+                  </div>
+                  <div *ngIf="selectedLocations.length > 0" style="margin-top: 6px; font-size: 0.78rem; color: #64748B;">Selected: {{ selectedLocations.join(', ') }}</div>
                 </div>
                 <div class="form-group half-width">
                   <label>Priority</label>
@@ -619,10 +619,9 @@
             </div>
           </div>
 
-          <!-- Panel Groups Container -->
-          <div class="panel-groups-wrapper" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
-            <!-- Iterate through each interview (grouped by candidate) -->
-            <div *ngFor="let group of paginatedGroupedPanels" class="interview-group-card bg-white rounded-lg mb-4 p-4" style="border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+          <!-- Interview Card Template (reusable) -->
+          <ng-template #interviewCardTpl let-group>
+            <div class="interview-group-card bg-white rounded-lg mb-4 p-4" style="border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
               <div class="group-header flex-between mb-3" style="border-bottom: 1px solid #F1F5F9; padding-bottom: 10px;">
                 <h4 style="margin: 0; color: #0F172A; font-weight: 600; font-size: 1.1rem;">
                   <i class="fas fa-user text-blue" style="margin-right: 8px;"></i>
@@ -678,30 +677,50 @@
                 <button class="btn btn-outline-sm" (click)="viewInterviewDetails(group)">View Details</button>
               </div>
             </div>
-            
-            <!-- Pagination Controls -->
-            <div class="pagination-controls bg-white rounded-lg" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid #E2E8F0; margin-top: 10px;">
-              <div style="color: #64748B; font-size: 0.85rem;">
-                Showing <span style="font-weight: 600; color: #1E293B;">{{ (interviewPanelCurrentPage - 1) * interviewPanelPageSize + 1 }}</span> 
-                to <span style="font-weight: 600; color: #1E293B;">{{ interviewPanelCurrentPage * interviewPanelPageSize > groupedInterviewPanels.length ? groupedInterviewPanels.length : interviewPanelCurrentPage * interviewPanelPageSize }}</span> 
-                of <span style="font-weight: 600; color: #1E293B;">{{ groupedInterviewPanels.length }}</span> interviews
+          </ng-template>
+
+          <!-- ═══ Active Interview Panels Accordion ═══ -->
+          <div class="ip-accordion-container" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
+            <div class="ip-accordion-header" (click)="toggleActiveInterviewsAccordion()" [class.open]="activeInterviewsAccordionOpen">
+              <div class="ip-accordion-title-row">
+                <i class="fas fa-bolt" style="color: #10B981; font-size: 1rem;"></i>
+                <h4>Active Interview Panels</h4>
+                <span class="ip-accordion-badge active-badge">{{ activeInterviewPanels.length }}</span>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-outline-sm" 
-                        [disabled]="interviewPanelCurrentPage === 1" 
-                        (click)="changeInterviewPanelPage(-1)"
-                        style="padding: 4px 12px; border-radius: 6px; border: 1px solid #CBD5E1; background: white; cursor: pointer;">
-                  <i class="fas fa-chevron-left" style="font-size: 0.75rem; color: #64748B;"></i> Prev
-                </button>
-                <div style="display: flex; align-items: center; padding: 0 10px; font-size: 0.9rem; font-weight: 600; color: #1E293B; background: #F1F5F9; border-radius: 6px;">
-                  {{ interviewPanelCurrentPage }} / {{ Math.max(1, interviewPanelTotalPages) }}
-                </div>
-                <button class="btn btn-outline-sm" 
-                        [disabled]="interviewPanelCurrentPage === interviewPanelTotalPages || interviewPanelTotalPages === 0" 
-                        (click)="changeInterviewPanelPage(1)"
-                        style="padding: 4px 12px; border-radius: 6px; border: 1px solid #CBD5E1; background: white; cursor: pointer;">
-                  Next <i class="fas fa-chevron-right" style="font-size: 0.75rem; color: #64748B;"></i>
-                </button>
+              <svg class="ip-accordion-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </div>
+            <div class="ip-accordion-body" *ngIf="activeInterviewsAccordionOpen">
+              <div *ngIf="activeInterviewPanels.length > 0">
+                <ng-container *ngFor="let group of activeInterviewPanels">
+                  <ng-container *ngTemplateOutlet="interviewCardTpl; context: { $implicit: group }"></ng-container>
+                </ng-container>
+              </div>
+              <div *ngIf="activeInterviewPanels.length === 0" class="ip-accordion-empty">
+                <i class="fas fa-check-circle"></i>
+                <p>No active interview panels at this time</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ Scheduled for Later Interview Panels Accordion ═══ -->
+          <div class="ip-accordion-container" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
+            <div class="ip-accordion-header" (click)="toggleScheduledInterviewsAccordion()" [class.open]="scheduledInterviewsAccordionOpen">
+              <div class="ip-accordion-title-row">
+                <i class="fas fa-calendar-alt" style="color: #0B2265; font-size: 1rem;"></i>
+                <h4>Scheduled for Later</h4>
+                <span class="ip-accordion-badge scheduled-badge">{{ scheduledLaterInterviewPanels.length }}</span>
+              </div>
+              <svg class="ip-accordion-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </div>
+            <div class="ip-accordion-body" *ngIf="scheduledInterviewsAccordionOpen">
+              <div *ngIf="scheduledLaterInterviewPanels.length > 0">
+                <ng-container *ngFor="let group of scheduledLaterInterviewPanels">
+                  <ng-container *ngTemplateOutlet="interviewCardTpl; context: { $implicit: group }"></ng-container>
+                </ng-container>
+              </div>
+              <div *ngIf="scheduledLaterInterviewPanels.length === 0" class="ip-accordion-empty">
+                <i class="fas fa-calendar-check"></i>
+                <p>No interviews scheduled for later</p>
               </div>
             </div>
           </div>
@@ -1226,9 +1245,6 @@
                       <span class="kanban-tag" *ngFor="let sk of c.skills.slice(0, 2)">{{ sk }}</span>
                     </div>
                     <div class="kanban-card-bottom">
-                      <span class="kanban-card-score" [style.color]="c.score >= 85 ? '#10B981' : c.score >= 70 ? '#F59E0B' : '#EF4444'">
-                        <i class="fas fa-star"></i> {{ c.score }}
-                      </span>
                       <span class="kanban-card-date"><i class="far fa-clock"></i> {{ c.appliedDate }}</span>
                     </div>
                     <div *ngIf="getPanelsForInterview(getLatestInterview(c.candidate_id)?.interview_id).length > 0">

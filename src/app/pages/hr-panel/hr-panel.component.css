@@ -2198,6 +2198,127 @@ textarea.form-input {
   font-size: 0.9rem;
 }
 
+/* ========== INTERVIEW PANEL ACCORDION ========== */
+.ip-accordion-container {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: box-shadow 0.25s ease;
+  position: relative;
+}
+
+.ip-accordion-container:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.ip-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  user-select: none;
+}
+
+.ip-accordion-header:hover {
+  background: #F8FAFC;
+}
+
+.ip-accordion-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ip-accordion-title-row h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+}
+
+.ip-accordion-badge {
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.ip-accordion-badge.active-badge {
+  background: #10B981;
+}
+
+.ip-accordion-badge.scheduled-badge {
+  background: #0B2265;
+}
+
+.ip-accordion-chevron {
+  width: 18px;
+  height: 18px;
+  color: #94A3B8;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.ip-accordion-header.open .ip-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.ip-accordion-body {
+  padding: 0 20px 20px;
+  animation: ipAccordionSlideIn 0.25s ease-out;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.ip-accordion-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ip-accordion-body::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.ip-accordion-body::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.ip-accordion-body::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+@keyframes ipAccordionSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ip-accordion-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: #94A3B8;
+  font-size: 0.9rem;
+}
+
+.ip-accordion-empty i {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  display: block;
+  color: #CBD5E1;
+}
+
+.ip-accordion-empty p {
+  margin: 0;
+  color: #64748B;
+}
+
 /* ===== TOAST NOTIFICATION ===== */
 .toast-notification {
   position: fixed;
