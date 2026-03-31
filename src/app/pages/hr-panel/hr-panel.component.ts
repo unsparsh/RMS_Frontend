@@ -326,6 +326,20 @@ export class HrPanelComponent implements OnInit {
     return String(field);
   }
 
+  getInitials(name: string): string {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return 'IN';
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    return parts
+      .slice(0, 2)
+      .map((part: string) => part[0])
+      .join('')
+      .toUpperCase();
+  }
+
   openAddPanelModal() {
     this.showAddPanelModal = true;
     this.newPanelForm = {
@@ -662,6 +676,7 @@ export class HrPanelComponent implements OnInit {
         this.showToast(`Successfully created ${successCount} interview(s)!`, 'success');
         this.closeAddPanelModal();
         this.loadInterviewPanels();
+        this.loadInterviewsAndPanels();
         this.loadCandidates();
       } else {
         this.showToast('Failed to create interviews. Please try again.', 'error');
@@ -689,6 +704,7 @@ export class HrPanelComponent implements OnInit {
       this.showToast('Interview panel created successfully!', 'success');
       this.closeAddPanelModal();
       this.loadInterviewPanels();
+      this.loadInterviewsAndPanels();
     } catch (e) {
       console.error('Error creating interview panel:', e);
       this.showToast('Failed to create interview panel.', 'error');
@@ -702,6 +718,7 @@ export class HrPanelComponent implements OnInit {
       this.showToast('Interview panel updated successfully!', 'success');
       this.closeAddPanelModal();
       this.loadInterviewPanels();
+      this.loadInterviewsAndPanels();
     } catch (e) {
       console.error('Error updating interview panel:', e);
       this.showToast('Failed to update interview panel.', 'error');
@@ -714,6 +731,7 @@ export class HrPanelComponent implements OnInit {
       await this.heroService.deleteInterviewPanel(panel.raw);
       this.showToast('Interview panel removed successfully!', 'success');
       this.loadInterviewPanels();
+      this.loadInterviewsAndPanels();
     } catch (e) {
       console.error('Error removing interview panel:', e);
       this.showToast('Failed to remove interview panel.', 'error');

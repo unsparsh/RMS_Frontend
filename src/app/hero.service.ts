@@ -456,7 +456,7 @@ export class HeroService {
       cursor: {
         '@id': '0',
         '@position': '0',
-        '@numRows': '5',
+        '@numRows': '99999',
         '@maxRows': '99999',
         '@sameConnection': 'false'
       },
