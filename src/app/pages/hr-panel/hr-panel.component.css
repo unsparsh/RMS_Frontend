@@ -3088,3 +3088,68 @@ textarea.form-input {
   color: #0B2265;
 }
 
+/* ─── HR Interview Request Accept / Delegate Buttons ─── */
+.hr-request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.btn-hr-accept {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btn-hr-accept:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-hr-accept:active {
+  transform: translateY(0);
+}
+
+.btn-hr-delegate {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+  color: #475569;
+}
+
+.btn-hr-delegate:hover {
+  border-color: #0B2265;
+  color: #0B2265;
+  background: rgba(11, 34, 101, 0.04);
+  transform: translateY(-1px);
+}
+
+.btn-hr-delegate:active {
+  transform: translateY(0);
+}
+
