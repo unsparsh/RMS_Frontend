@@ -539,11 +539,11 @@ export class HeroService {
             feedback: ext(newData.feedback),
             rating: ext(newData.rating),
             ...(ext(newData.task_id) ? { task_id: ext(newData.task_id) } : {}),
-            ...(ext(newData.temp1) ? { temp1: ext(newData.temp1) } : {}),
-            ...(ext(newData.temp2) ? { temp2: ext(newData.temp2) } : {}),
-            ...(ext(newData.temp3) ? { temp3: ext(newData.temp3) } : {}),
-            ...(ext(newData.temp4) ? { temp4: ext(newData.temp4) } : {}),
-            ...(ext(newData.temp5) ? { temp5: ext(newData.temp5) } : {}),
+            ...('temp1' in newData ? { temp1: ext(newData.temp1) } : {}),
+            ...('temp2' in newData ? { temp2: ext(newData.temp2) } : {}),
+            ...('temp3' in newData ? { temp3: ext(newData.temp3) } : {}),
+            ...('temp4' in newData ? { temp4: ext(newData.temp4) } : {}),
+            ...('temp5' in newData ? { temp5: ext(newData.temp5) } : {}),
             modified_at: new Date().toISOString(),
             modified_by: sessionStorage.getItem('displayName') || 'HR'
           }

@@ -1,4 +1,4 @@
-﻿<div class="peoplify-layout">
+<div class="peoplify-layout">
   <!-- Sidebar -->
   <aside class="peoplify-sidebar" [class.collapsed]="isSidebarCollapsed">
     <div class="sidebar-logo">
@@ -1660,7 +1660,7 @@
                   <td style="font-weight: 500;">{{ getExt(candidate.raw?.candidate_name) }}</td>
                   <td>{{ getExt(candidate.raw?.jr_id) }}</td>
                   <td>
-                    <button class="btn btn-primary-sm" (click)="openCreateOfferModal(candidate)">Process Offer</button>
+                    <button class="btn btn-primary-blue-sm" (click)="openCreateOfferModal(candidate)"><i class="fas fa-file-invoice" style="margin-right: 6px;"></i>Process Offer</button>
                   </td>
                 </tr>
               </tbody>
@@ -1742,6 +1742,93 @@
               <button type="button" class="btn btn-outline-sm" (click)="closePreviewOfferModal()">Cancel</button>
               <button type="button" class="btn" style="background: #10B981; color: white; transition: background 0.2s;" (click)="sendOfferForApproval()"><i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Send for Approval</button>
             </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ==================== INTERVIEW REQUESTS TAB ==================== -->
+      <ng-container *ngIf="activeTab === 'Interview Requests'">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
+          <div class="dashboard-header mb-3">
+            <div>
+              <h1 style="font-size: 1.5rem;">Interview Requests</h1>
+              <p class="text-muted">Accept or delegate interview assignments sent to you.</p>
+            </div>
+            <div class="header-actions">
+              <span class="mi-count-badge">
+                <i class="fas fa-envelope-open-text"></i>
+                {{ hrPendingRequests.length }} pending request{{ hrPendingRequests.length !== 1 ? 's' : '' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div *ngIf="isLoadingMyInterviews" style="display: flex; align-items: center; justify-content: center; padding: 60px 20px; background: white; border-radius: 12px; border: 1px solid #E2E8F0;">
+            <div style="text-align: center;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #0B2265; margin-bottom: 12px;"></i>
+              <p style="color: #64748B; margin: 0;">Loading your interview requests...</p>
+            </div>
+          </div>
+
+          <!-- Request Cards -->
+          <div class="mi-cards-grid" *ngIf="!isLoadingMyInterviews && hrPendingRequests.length > 0">
+            <div *ngFor="let req of hrPendingRequests" class="mi-card" style="cursor: default;">
+              <div class="mi-card-top">
+                <div class="mi-candidate">
+                  <div class="mi-avatar">{{ req.candidate_name?.charAt(0) || '?' }}</div>
+                  <div>
+                    <h3 class="mi-candidate-name">{{ req.candidate_name || 'Unnamed Candidate' }}</h3>
+                    <span class="mi-candidate-id">{{ req.candidate_email }}</span>
+                  </div>
+                </div>
+                <span class="mi-round-badge">{{ req.round || 'Interview' }}</span>
+              </div>
+
+              <div class="mi-job-info">
+                <span class="mi-job-title">{{ req.job_title }}</span>
+                <span class="mi-id-badge">{{ req.jr_id }}</span>
+              </div>
+
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;" *ngIf="req.job_department || req.job_location">
+                <span style="font-size: 0.8rem; color: #64748B;">{{ req.job_department }}</span>
+                <span style="font-size: 0.8rem; color: #CBD5E1;" *ngIf="req.job_department && req.job_location">·</span>
+                <span style="font-size: 0.8rem; color: #64748B;">{{ req.job_location }}</span>
+              </div>
+
+              <div class="mi-schedule-row">
+                <div class="mi-schedule-item" *ngIf="req.scheduled_date">
+                  <i class="far fa-calendar-alt"></i>
+                  <span>{{ req.scheduled_date }}</span>
+                </div>
+                <div class="mi-schedule-item" *ngIf="req.scheduled_time">
+                  <i class="far fa-clock"></i>
+                  <span>{{ req.scheduled_time }}</span>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px;" *ngIf="req.candidate_skills">
+                <span class="mi-skill-chip" *ngFor="let skill of req.candidate_skills.split(',')">{{ skill.trim() }}</span>
+              </div>
+
+              <!-- Accept / Delegate buttons -->
+              <div class="hr-request-actions">
+                <button class="btn-hr-accept" (click)="acceptHrRequest(req)">
+                  <i class="fas fa-check"></i> Accept
+                </button>
+                <button class="btn-hr-delegate" (click)="openHrDelegateModal(req)">
+                  <i class="fas fa-share"></i> Delegate
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div *ngIf="!isLoadingMyInterviews && hrPendingRequests.length === 0" class="mi-empty-state">
+            <div class="mi-empty-icon" style="background: #D1FAE5;">
+              <i class="fas fa-check-circle" style="color: #10B981;"></i>
+            </div>
+            <h3>No Pending Requests</h3>
+            <p>You have no interview requests at this time.</p>
           </div>
         </div>
       </ng-container>
@@ -1977,8 +2064,42 @@
         </div>
       </aside>
 
+      <!-- ==================== HR DELEGATION MODAL ==================== -->
+      <div class="modal-backdrop" *ngIf="showHrDelegateModal" (click)="closeHrDelegateModal()"></div>
+      <div class="modal-dialog" *ngIf="showHrDelegateModal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; max-width: 520px; width: 90%; background: white; border-radius: 16px; box-shadow: 0 25px 60px rgba(0,0,0,0.25); padding: 0; overflow: hidden;" (click)="$event.stopPropagation()">
+        <div class="modal-header-row" style="padding: 20px 24px; border-bottom: 1px solid #E2E8F0;">
+          <h3 style="margin: 0; font-size: 1.15rem; color: #0F172A;"><i class="fas fa-share text-blue" style="margin-right: 8px;"></i>Delegate Interview</h3>
+          <button class="modal-close-btn" (click)="closeHrDelegateModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="padding: 20px 24px;">
+          <div *ngIf="delegatingHrRequest" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 18px;">
+            <p style="margin: 0 0 6px; font-size: 0.9rem; color: #64748B;"><strong style="color: #1E293B;">Candidate:</strong> {{ delegatingHrRequest.candidate_name }}</p>
+            <p style="margin: 0 0 6px; font-size: 0.9rem; color: #64748B;"><strong style="color: #1E293B;">Position:</strong> {{ delegatingHrRequest.job_title }}</p>
+            <p style="margin: 0; font-size: 0.9rem; color: #64748B;"><strong style="color: #1E293B;">Round:</strong> {{ delegatingHrRequest.round }}</p>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 0.9rem;">Delegate To</label>
+            <select [(ngModel)]="delegateHrEmployeeId" class="form-input">
+              <option value="">Select an employee…</option>
+              <option *ngFor="let emp of delegateHrEmployeeOptions" [value]="emp.employee_id">{{ emp.employee_name }} — {{ emp.department }}</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 0.9rem;">Reason</label>
+            <textarea [(ngModel)]="delegateHrReason" class="form-input" placeholder="Reason for delegating…" rows="3" style="resize: vertical;"></textarea>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid #E2E8F0; background: #F8FAFC;">
+          <button class="btn btn-outline-sm" (click)="closeHrDelegateModal()">Cancel</button>
+          <button class="btn btn-primary-blue" (click)="confirmHrDelegate()" [disabled]="!delegateHrEmployeeId || isHrDelegating">
+            <i class="fas fa-spinner fa-spin" *ngIf="isHrDelegating" style="margin-right: 6px;"></i>
+            {{ isHrDelegating ? 'Delegating…' : 'Confirm Delegation' }}
+          </button>
+        </div>
+      </div>
+
       <!-- ==================== FALLBACK FOR OTHER TABS ==================== -->
-      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'My Interviews' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking' && activeTab !== 'Offer Tracker'">
+      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'Interview Requests' && activeTab !== 'My Interviews' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking' && activeTab !== 'Offer Tracker'">
         <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
           <div class="dashboard-header">
             <h1>{{ activeTab }}</h1>

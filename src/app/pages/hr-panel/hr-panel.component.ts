@@ -69,6 +69,7 @@ export class HrPanelComponent implements OnInit {
 
   // --- My Interviews (HR as interviewer) ---
   myHrInterviews: any[] = [];
+  hrPendingRequests: any[] = [];
   isLoadingMyInterviews = false;
   selectedMyInterview: any = null;
   myFeedbackText = '';
@@ -78,6 +79,13 @@ export class HrPanelComponent implements OnInit {
   myCulturalFit = '';
   myAnotherInterviewRequired = '';
   isSubmittingMyFeedback = false;
+
+  // --- Delegation modal (HR) ---
+  showHrDelegateModal = false;
+  delegatingHrRequest: any = null;
+  delegateHrEmployeeId = '';
+  delegateHrReason = '';
+  isHrDelegating = false;
 
   constructor(private heroService: HeroService, private auth: AuthService, private router: Router, private http: HttpClient) {}
 
@@ -98,7 +106,12 @@ export class HrPanelComponent implements OnInit {
     if (typeof sessionStorage !== 'undefined') {
       emailOrId = sessionStorage.getItem('displayName') || sessionStorage.getItem('employeeId') || '';
     }
-    if (!emailOrId) return;
+    if (!emailOrId) {
+      console.warn('[HrPanel] resolveLoggedInUser: no displayName or employeeId in sessionStorage');
+      return;
+    }
+
+    console.log('[HrPanel] resolveLoggedInUser: loginId =', emailOrId);
 
     // Use fallback first
     this.loggedInAdminFullName = emailOrId;
@@ -107,27 +120,52 @@ export class HrPanelComponent implements OnInit {
 
     try {
       const resp = await this.heroService.getEmployees();
+      
+      // Try parsing as 'employee' first, then 'tuple'
       let arr = this.heroService.xmltojson(resp, 'employee');
-      if (!arr) return;
+      if (!arr) {
+        const tuples = this.heroService.xmltojson(resp, 'tuple');
+        if (tuples) {
+          const tupArr = Array.isArray(tuples) ? tuples : [tuples];
+          arr = tupArr.map((t: any) => t.old?.employee || t.new?.employee || t.employee || t);
+        }
+      }
+      if (!arr) {
+        console.warn('[HrPanel] resolveLoggedInUser: could not parse employee data');
+        return;
+      }
       if (!Array.isArray(arr)) arr = [arr];
+
+      console.log('[HrPanel] resolveLoggedInUser: total employees found:', arr.length);
 
       const loginId = emailOrId.toLowerCase();
       const me = arr.find((e: any) => 
-        (e.email || '').toLowerCase() === loginId ||
+        (this.getExt(e.email) || '').toLowerCase() === loginId ||
         (this.getExt(e.employee_id) || '').toLowerCase() === loginId ||
-        (e.employee_name || '').toLowerCase() === loginId
+        (this.getExt(e.employee_name) || '').toLowerCase() === loginId
       );
 
       if (me) {
-        if (me.employee_name) {
-          this.loggedInAdminFullName = me.employee_name;
-          this.loggedInAdminName = me.employee_name.split(' ')[0];
+        const empName = this.getExt(me.employee_name) || me.employee_name;
+        if (empName) {
+          this.loggedInAdminFullName = empName;
+          this.loggedInAdminName = empName.split(' ')[0];
           this.loggedInAdminInitial = this.loggedInAdminName.charAt(0).toUpperCase();
         }
         this.loggedInEmployeeId = this.getExt(me.employee_id);
-        console.log('[HrPanel] Resolved employee_id:', this.loggedInEmployeeId);
+        console.log('[HrPanel] Resolved employee_id:', this.loggedInEmployeeId, 'name:', empName);
         // Now load my interviews
         this.loadMyInterviews();
+      } else {
+        console.warn('[HrPanel] resolveLoggedInUser: no employee match for loginId:', loginId);
+        // Debug: log first few employee records to help diagnose
+        if (arr.length > 0) {
+          console.log('[HrPanel] Sample employees:', arr.slice(0, 3).map((e: any) => ({
+            id: this.getExt(e.employee_id),
+            name: this.getExt(e.employee_name),
+            email: this.getExt(e.email)
+          })));
+        }
       }
     } catch (e) {
       console.warn('Could not resolve logged in HR name via getEmployees', e);
@@ -200,6 +238,7 @@ export class HrPanelComponent implements OnInit {
         { name: 'Job Requisition', icon: 'fas fa-briefcase' },
         { name: 'Jobs', icon: 'fas fa-list' },
         { name: 'Interview Panel', icon: 'fas fa-user-tie' },
+        { name: 'Interview Requests', icon: 'fas fa-envelope-open-text' },
         { name: 'My Interviews', icon: 'fas fa-calendar-check' },
         { name: 'Scheduling', icon: 'far fa-calendar-alt' },
         { name: 'Candidate Pipeline', icon: 'fas fa-users' },
@@ -2471,7 +2510,10 @@ export class HrPanelComponent implements OnInit {
   // ===================== MY INTERVIEWS (HR as interviewer) =====================
 
   async loadMyInterviews() {
-    if (!this.loggedInEmployeeId) return;
+    if (!this.loggedInEmployeeId) {
+      console.warn('[HrPanel] loadMyInterviews skipped: loggedInEmployeeId is empty');
+      return;
+    }
     this.isLoadingMyInterviews = true;
     try {
       const [panelResp, interviewResp, candidatesResp, jobsResp] = await Promise.all([
@@ -2481,7 +2523,7 @@ export class HrPanelComponent implements OnInit {
         this.heroService.getJobRequisitions()
       ]);
 
-      // Parse panels
+      // Parse panels — same approach as employee dashboard
       let panData = this.heroService.xmltojson(panelResp, 'tuple');
       if (!panData) panData = this.heroService.xmltojson(panelResp, 'interview_panel');
       if (!panData) panData = [];
@@ -2491,10 +2533,21 @@ export class HrPanelComponent implements OnInit {
         return this.flattenRecord(r);
       }).filter((p: any) => p.panel_id);
 
+      console.log('[HrPanel] loadMyInterviews - Total panels:', allPanels.length);
+      console.log('[HrPanel] loadMyInterviews - loggedInEmployeeId:', this.loggedInEmployeeId);
+      
+      // Debug: show all unique interviewer_ids
+      const uniqueIds = [...new Set(allPanels.map((p: any) => p.interviewer_id))];
+      console.log('[HrPanel] loadMyInterviews - All interviewer_ids in panels:', uniqueIds);
+
       // Filter panels for this HR user
       const myPanels = allPanels.filter((p: any) =>
         (p.interviewer_id || '').toLowerCase() === this.loggedInEmployeeId.toLowerCase()
       );
+      console.log('[HrPanel] loadMyInterviews - Panels matching my employee_id:', myPanels.length);
+      if (myPanels.length > 0) {
+        console.log('[HrPanel] loadMyInterviews - Sample panel:', myPanels[0]);
+      }
 
       // Parse interviews
       let intData = this.heroService.xmltojson(interviewResp, 'tuple');
@@ -2505,6 +2558,8 @@ export class HrPanelComponent implements OnInit {
         const r = t.old?.interview || t.new?.interview || t.interview || t;
         return this.flattenRecord(r);
       }).filter((i: any) => i.interview_id);
+
+      console.log('[HrPanel] loadMyInterviews - Total interviews:', interviews.length);
 
       // Parse candidates
       const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
@@ -2524,13 +2579,15 @@ export class HrPanelComponent implements OnInit {
         }
       });
 
-      // Parse jobs
-      const jobData = this.heroService.xmltojson(jobsResp, 'job_requisition');
-      const jobsArray = jobData ? (Array.isArray(jobData) ? jobData : [jobData]) : [];
+      // Parse jobs — use 'tuple' wrapper first, then extract job_requisition
+      let jobTuples = this.heroService.xmltojson(jobsResp, 'tuple');
+      if (!jobTuples) jobTuples = this.heroService.xmltojson(jobsResp, 'job_requisition');
+      if (!jobTuples) jobTuples = [];
+      const jobsArray = Array.isArray(jobTuples) ? jobTuples : [jobTuples];
       const ext = (field: any) => field?.text || field?.['#text'] || field || '';
       const jobMap = new Map<string, any>();
       jobsArray.forEach((j: any) => {
-        const record = j.old || j.new || j;
+        const record = j.old?.job_requisition || j.new?.job_requisition || j.job_requisition || j;
         const jrId = ext(record.jr_id);
         if (jrId) {
           jobMap.set(jrId, {
@@ -2542,51 +2599,64 @@ export class HrPanelComponent implements OnInit {
           });
         }
       });
+      console.log('[HrPanel] loadMyInterviews - Jobs loaded:', jobMap.size);
 
-      // Build enriched interviews
-      this.myHrInterviews = myPanels
-        .filter((p: any) => {
-          const temp1 = (p.temp1 || '').toUpperCase();
-          return temp1 === 'ACCEPTED' && !p.feedback;
-        })
-        .map((p: any) => {
-          const interview = interviews.find((i: any) => i.interview_id === p.interview_id) || {};
-          const candidate = candidateMap.get(interview.candidate_id) || {};
-          const job = jobMap.get(interview.jr_id) || {};
+      // Debug: show temp1 values for all my panels
+      myPanels.forEach((p: any) => {
+        console.log('[HrPanel] Panel', p.panel_id, '-> temp1:', JSON.stringify(p.temp1), ', feedback:', JSON.stringify(p.feedback));
+      });
 
-          return {
-            panel_id: p.panel_id,
-            interview_id: p.interview_id,
-            interviewer_id: p.interviewer_id,
-            interviewer_name: p.interviewer_name,
-            feedback: p.feedback || '',
-            rating: parseInt(p.rating, 10) || 0,
-            temp2: p.temp2 || '',
-            temp3: p.temp3 || '',
-            temp4: p.temp4 || '',
-            temp5: p.temp5 || '',
-            candidate_name: candidate.name || '',
-            candidate_email: candidate.email || '',
-            candidate_id: interview.candidate_id || '',
-            candidate_skills: candidate.skills || '',
-            candidate_experience: parseInt(candidate.experience, 10) || 0,
-            candidate_resume_path: candidate.resume_path || '',
-            jr_id: interview.jr_id || '',
-            job_title: job.job_title || '',
-            job_department: job.department || '',
-            job_location: job.location || '',
-            job_description: job.job_description || '',
-            required_skills: job.required_skills || '',
-            round: interview.round || '',
-            scheduled_date: interview.scheduled_date || '',
-            scheduled_time: interview.scheduled_time || '',
-            meeting_link: interview.meeting_link || '',
-            interview_status: interview.status || '',
-            raw_panel: p
-          };
-        });
+      // Build enriched panel objects
+      const enrichedPanels = myPanels.filter((p: any) => !p.feedback).map((p: any) => {
+        const interview = interviews.find((i: any) => i.interview_id === p.interview_id) || {};
+        const candidate = candidateMap.get(interview.candidate_id) || {};
+        const job = jobMap.get(interview.jr_id) || {};
 
-      console.log('[HrPanel] My HR Interviews (accepted, no feedback):', this.myHrInterviews.length);
+        const temp1 = (p.temp1 || '').toUpperCase();
+        const accepted = temp1 === 'ACCEPTED';
+        const delegated = temp1 === 'DELEGATED';
+
+        return {
+          panel_id: p.panel_id,
+          interview_id: p.interview_id,
+          interviewer_id: p.interviewer_id,
+          interviewer_name: p.interviewer_name,
+          feedback: p.feedback || '',
+          rating: parseInt(p.rating, 10) || 0,
+          temp1: p.temp1 || '',
+          temp2: p.temp2 || '',
+          temp3: p.temp3 || '',
+          temp4: p.temp4 || '',
+          temp5: p.temp5 || '',
+          candidate_name: candidate.name || '',
+          candidate_email: candidate.email || '',
+          candidate_id: interview.candidate_id || '',
+          candidate_skills: candidate.skills || '',
+          candidate_experience: parseInt(candidate.experience, 10) || 0,
+          candidate_resume_path: candidate.resume_path || '',
+          jr_id: interview.jr_id || '',
+          job_title: job.job_title || '',
+          job_department: job.department || '',
+          job_location: job.location || '',
+          job_description: job.job_description || '',
+          required_skills: job.required_skills || '',
+          round: interview.round || '',
+          scheduled_date: interview.scheduled_date || '',
+          scheduled_time: interview.scheduled_time || '',
+          meeting_link: interview.meeting_link || '',
+          interview_status: interview.status || '',
+          accepted,
+          _delegated: delegated,
+          raw_panel: p
+        };
+      });
+
+      // Separate pending requests vs accepted interviews (ignore delegated)
+      this.hrPendingRequests = enrichedPanels.filter((r: any) => !r.accepted && !r._delegated);
+      this.myHrInterviews = enrichedPanels.filter((r: any) => r.accepted && !r.feedback);
+
+      console.log('[HrPanel] HR Pending Requests:', this.hrPendingRequests.length);
+      console.log('[HrPanel] My HR Interviews (accepted):', this.myHrInterviews.length);
     } catch (e) {
       console.error('[HrPanel] Error loading my interviews:', e);
     } finally {
@@ -2612,6 +2682,98 @@ export class HrPanelComponent implements OnInit {
     this.myFeedbackRating = rating;
   }
 
+  // ─── Accept Interview Request (HR) ───
+  async acceptHrRequest(req: any): Promise<void> {
+    try {
+      const oldData = {
+        panel_id: req.panel_id,
+        interview_id: req.interview_id,
+        interviewer_id: req.interviewer_id
+      };
+      const newData = {
+        panel_id: req.panel_id,
+        interview_id: req.interview_id,
+        interviewer_id: req.interviewer_id,
+        interviewer_name: req.interviewer_name,
+        temp1: 'accepted'
+      };
+      await this.heroService.updateInterviewPanel(oldData, newData);
+
+      // Move from requests to interviews locally
+      req.accepted = true;
+      this.hrPendingRequests = this.hrPendingRequests.filter((r: any) => r.panel_id !== req.panel_id);
+      this.myHrInterviews = [...this.myHrInterviews, req];
+      this.showToast('Interview request accepted!', 'success');
+    } catch (error) {
+      console.error('Failed to accept interview:', error);
+      this.showToast('Failed to accept interview request. Please try again.', 'error');
+    }
+  }
+
+  // ─── Delegation (HR) ───
+  openHrDelegateModal(req: any): void {
+    this.delegatingHrRequest = req;
+    this.delegateHrEmployeeId = '';
+    this.delegateHrReason = '';
+    this.showHrDelegateModal = true;
+    // Ensure employees are loaded for the picker
+    if (this.employeesList.length === 0) {
+      this.loadEmployeesForInterview();
+    }
+  }
+
+  closeHrDelegateModal(): void {
+    this.showHrDelegateModal = false;
+    this.delegatingHrRequest = null;
+  }
+
+  get delegateHrEmployeeOptions(): any[] {
+    return this.employeesList.filter((e: any) =>
+      e.employee_id !== this.loggedInEmployeeId
+    );
+  }
+
+  async confirmHrDelegate(): Promise<void> {
+    if (!this.delegatingHrRequest || !this.delegateHrEmployeeId) return;
+
+    this.isHrDelegating = true;
+    try {
+      // 1. Mark the original interviewer's row as delegated
+      const oldData = {
+        panel_id: this.delegatingHrRequest.panel_id,
+        interview_id: this.delegatingHrRequest.interview_id,
+        interviewer_id: this.delegatingHrRequest.interviewer_id
+      };
+      const newData = {
+        panel_id: this.delegatingHrRequest.panel_id,
+        interview_id: this.delegatingHrRequest.interview_id,
+        interviewer_id: this.delegatingHrRequest.interviewer_id,
+        interviewer_name: this.delegatingHrRequest.interviewer_name,
+        temp1: 'delegated'
+      };
+      await this.heroService.updateInterviewPanel(oldData, newData);
+
+      // 2. Create a new entry for the delegate employee
+      const delegateEmp = this.employeesList.find((e: any) => e.employee_id === this.delegateHrEmployeeId);
+      await this.heroService.createInterviewPanel({
+        interview_id: this.delegatingHrRequest.interview_id,
+        interviewer_id: this.delegateHrEmployeeId,
+        interviewer_name: delegateEmp?.employee_name || '',
+        temp1: 'pending'
+      });
+
+      // Remove from local list
+      this.hrPendingRequests = this.hrPendingRequests.filter((r: any) => r.panel_id !== this.delegatingHrRequest!.panel_id);
+      this.closeHrDelegateModal();
+      this.showToast('Interview delegated successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to delegate:', error);
+      this.showToast('Failed to delegate interview. Please try again.', 'error');
+    } finally {
+      this.isHrDelegating = false;
+    }
+  }
+
   async submitMyFeedback(): Promise<void> {
     if (!this.selectedMyInterview) return;
     if (this.myFeedbackRating < 1 || this.myFeedbackRating > 5) {
@@ -2625,21 +2787,23 @@ export class HrPanelComponent implements OnInit {
 
     this.isSubmittingMyFeedback = true;
     try {
-      const oldData = this.selectedMyInterview.raw_panel || {
+      const oldData = {
         panel_id: this.selectedMyInterview.panel_id,
         interview_id: this.selectedMyInterview.interview_id,
         interviewer_id: this.selectedMyInterview.interviewer_id
       };
       const newData = {
-        ...oldData,
+        panel_id: this.selectedMyInterview.panel_id,
+        interview_id: this.selectedMyInterview.interview_id,
+        interviewer_id: this.selectedMyInterview.interviewer_id,
         interviewer_name: this.selectedMyInterview.interviewer_name,
         feedback: this.myFeedbackText,
         rating: this.myFeedbackRating,
         temp1: 'accepted',
-        temp2: this.myTechnicalSkills,
-        temp3: this.myCommunicationSkills,
-        temp4: this.myCulturalFit,
-        temp5: this.myAnotherInterviewRequired
+        temp2: this.myTechnicalSkills || '',
+        temp3: this.myCommunicationSkills || '',
+        temp4: this.myCulturalFit || '',
+        temp5: this.myAnotherInterviewRequired || ''
       };
       await this.heroService.updateInterviewPanel(oldData, newData);
 
