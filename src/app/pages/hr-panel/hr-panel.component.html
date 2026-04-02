@@ -1503,7 +1503,7 @@
                     </div>
                   </td>
                   <td>
-                    <button class="btn btn-outline-sm">View Details</button>
+                    <button class="btn btn-outline-sm" (click)="viewReferralDetails(employee)"><i class="fas fa-eye" style="margin-right: 4px;"></i>View Details</button>
                   </td>
                 </tr>
               </tbody>
@@ -1514,6 +1514,79 @@
             </div>
           </div>
         </div>
+
+        <!-- REFERRAL DETAIL SLIDE-OUT -->
+        <div class="mi-detail-backdrop" *ngIf="selectedReferralEmployee" (click)="closeReferralDetails()"></div>
+        <aside class="mi-detail-panel" [class.open]="selectedReferralEmployee">
+          <div class="mi-detail-header">
+            <div>
+              <h2 class="mi-detail-title">Referred Candidates</h2>
+              <p class="mi-detail-subtitle">By {{ selectedReferralEmployee?.name }} · {{ selectedReferralEmployee?.department }}</p>
+            </div>
+            <button class="mi-close-btn" (click)="closeReferralDetails()">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <!-- Summary stats -->
+          <div class="ref-detail-stats">
+            <div class="ref-stat">
+              <span class="ref-stat-value">{{ selectedReferralEmployee?.referralCount }}</span>
+              <span class="ref-stat-label">Total Referrals</span>
+            </div>
+            <div class="ref-stat">
+              <span class="ref-stat-value ref-stat-success">{{ selectedReferralEmployee?.successfulReferrals }}</span>
+              <span class="ref-stat-label">Successful Hires</span>
+            </div>
+          </div>
+
+          <!-- Candidate list -->
+          <div class="mi-detail-section" *ngIf="selectedReferralCandidates.length > 0">
+            <h3 class="mi-section-title"><i class="fas fa-user-friends"></i> Candidates ({{ selectedReferralCandidates.length }})</h3>
+            <div class="ref-candidate-list">
+              <div *ngFor="let ref of selectedReferralCandidates" class="ref-candidate-card">
+                <div class="ref-candidate-top">
+                  <div class="mi-avatar">{{ ref.candidate_name?.charAt(0) || '?' }}</div>
+                  <div class="ref-candidate-info">
+                    <h4 class="ref-candidate-name">{{ ref.candidate_name }}</h4>
+                    <span class="mi-candidate-id">{{ ref.candidate_id }}</span>
+                  </div>
+                  <span class="mi-status-badge" [ngClass]="getReferralStageClass(ref.application_stage)">{{ getReferralStageLabel(ref.application_stage) }}</span>
+                </div>
+                <div class="ref-candidate-meta">
+                  <div class="ref-meta-item" *ngIf="ref.job_title">
+                    <i class="fas fa-briefcase"></i>
+                    <span>{{ ref.job_title }}</span>
+                  </div>
+                  <div class="ref-meta-item" *ngIf="ref.candidate_email">
+                    <i class="fas fa-envelope"></i>
+                    <span>{{ ref.candidate_email }}</span>
+                  </div>
+                  <div class="ref-meta-item" *ngIf="ref.candidate_experience">
+                    <i class="fas fa-clock"></i>
+                    <span>{{ ref.candidate_experience }} yrs exp.</span>
+                  </div>
+                </div>
+                <div class="ref-candidate-skills" *ngIf="ref.candidate_skills">
+                  <div class="mi-skills-chips">
+                    <span class="mi-skill-chip" *ngFor="let skill of ref.candidate_skills.split(',')">{{ skill.trim() }}</span>
+                  </div>
+                </div>
+                <div class="ref-hired-badge" *ngIf="ref.is_hired">
+                  <i class="fas fa-check-circle"></i> Successfully Hired
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mi-empty-state" *ngIf="selectedReferralCandidates.length === 0" style="padding: 40px 20px; border: none;">
+            <div class="mi-empty-icon" style="width: 60px; height: 60px;">
+              <i class="fas fa-user-slash" style="font-size: 1.5rem;"></i>
+            </div>
+            <h3>No Referrals Found</h3>
+            <p>No referral records exist for this employee.</p>
+          </div>
+        </aside>
       </ng-container>
 
       <!-- ==================== OFFER TRACKER TAB ==================== -->
@@ -1638,8 +1711,239 @@
         </div>
       </ng-container>
 
+      <!-- ==================== MY INTERVIEWS TAB ==================== -->
+      <ng-container *ngIf="activeTab === 'My Interviews'">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
+          <div class="dashboard-header mb-3">
+            <div>
+              <h1 style="font-size: 1.5rem;">My Interviews</h1>
+              <p class="text-muted">Interviews assigned to you as an interviewer.</p>
+            </div>
+            <div class="header-actions">
+              <span class="mi-count-badge">
+                <i class="fas fa-calendar-check"></i>
+                {{ myHrInterviews.length }} interview{{ myHrInterviews.length !== 1 ? 's' : '' }} pending feedback
+              </span>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div *ngIf="isLoadingMyInterviews" style="display: flex; align-items: center; justify-content: center; padding: 60px 20px; background: white; border-radius: 12px; border: 1px solid #E2E8F0;">
+            <div style="text-align: center;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #0B2265; margin-bottom: 12px;"></i>
+              <p style="color: #64748B; margin: 0;">Loading your interviews...</p>
+            </div>
+          </div>
+
+          <!-- Interview Cards Grid -->
+          <div class="mi-cards-grid" *ngIf="!isLoadingMyInterviews && myHrInterviews.length > 0">
+            <div *ngFor="let iv of myHrInterviews" class="mi-card" (click)="openMyInterviewDetail(iv)">
+              <div class="mi-card-top">
+                <div class="mi-candidate">
+                  <div class="mi-avatar">{{ iv.candidate_name?.charAt(0) || '?' }}</div>
+                  <div>
+                    <h3 class="mi-candidate-name">{{ iv.candidate_name }}</h3>
+                    <span class="mi-candidate-id">{{ iv.candidate_id }}</span>
+                  </div>
+                </div>
+                <span class="mi-status-badge" [ngClass]="getMyInterviewStatusClass(iv.interview_status)">{{ iv.interview_status }}</span>
+              </div>
+
+              <div class="mi-job-info">
+                <span class="mi-job-title">{{ iv.job_title }}</span>
+                <span class="mi-id-badge">{{ iv.jr_id }}</span>
+                <span class="mi-round-badge">{{ iv.round }}</span>
+              </div>
+
+              <div class="mi-schedule-row">
+                <div class="mi-schedule-item" *ngIf="iv.scheduled_date">
+                  <i class="far fa-calendar-alt"></i>
+                  <span>{{ iv.scheduled_date }}</span>
+                </div>
+                <div class="mi-schedule-item" *ngIf="iv.scheduled_time">
+                  <i class="far fa-clock"></i>
+                  <span>{{ iv.scheduled_time }}</span>
+                </div>
+                <a *ngIf="iv.meeting_link" [href]="iv.meeting_link" target="_blank" class="mi-meeting-link" (click)="$event.stopPropagation()">
+                  <i class="fas fa-video"></i>
+                  Join Meeting
+                </a>
+              </div>
+
+              <div class="mi-feedback-indicator" *ngIf="iv.feedback">
+                <i class="fas fa-check-circle"></i>
+                <span>Feedback submitted</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div *ngIf="!isLoadingMyInterviews && myHrInterviews.length === 0" class="mi-empty-state">
+            <div class="mi-empty-icon">
+              <i class="fas fa-calendar-check"></i>
+            </div>
+            <h3>No Interviews Assigned</h3>
+            <p>You don't have any pending interview assignments at this time.</p>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ==================== MY INTERVIEW DETAIL SLIDE-OUT ==================== -->
+      <div class="mi-detail-backdrop" *ngIf="selectedMyInterview" (click)="closeMyInterviewDetail()"></div>
+      <aside class="mi-detail-panel" [class.open]="selectedMyInterview">
+        <div class="mi-detail-header">
+          <div>
+            <span class="mi-round-badge" style="margin-bottom: 8px; display: inline-block;">{{ selectedMyInterview?.round }}</span>
+            <h2 class="mi-detail-title">Interview Details</h2>
+            <p class="mi-detail-subtitle">{{ selectedMyInterview?.job_title }} · {{ selectedMyInterview?.job_department }}</p>
+          </div>
+          <button class="mi-close-btn" (click)="closeMyInterviewDetail()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Schedule Info -->
+        <div class="mi-detail-section">
+          <h3 class="mi-section-title"><i class="far fa-calendar-alt"></i> Schedule</h3>
+          <div class="mi-info-grid">
+            <div class="mi-info-chip">
+              <span class="mi-label">Date</span>
+              <span class="mi-value">{{ selectedMyInterview?.scheduled_date || 'TBD' }}</span>
+            </div>
+            <div class="mi-info-chip">
+              <span class="mi-label">Time</span>
+              <span class="mi-value">{{ selectedMyInterview?.scheduled_time || 'TBD' }}</span>
+            </div>
+            <div class="mi-info-chip">
+              <span class="mi-label">Status</span>
+              <span class="mi-status-badge" [ngClass]="getMyInterviewStatusClass(selectedMyInterview?.interview_status || '')">{{ selectedMyInterview?.interview_status }}</span>
+            </div>
+          </div>
+          <a *ngIf="selectedMyInterview?.meeting_link" [href]="selectedMyInterview?.meeting_link" target="_blank" class="mi-meeting-link-full">
+            <i class="fas fa-video"></i>
+            Join Meeting
+          </a>
+        </div>
+
+        <!-- Candidate Info -->
+        <div class="mi-detail-section">
+          <h3 class="mi-section-title"><i class="fas fa-user"></i> Candidate</h3>
+          <div class="mi-candidate-detail-card">
+            <div class="mi-candidate-detail-top">
+              <div class="mi-avatar lg">{{ selectedMyInterview?.candidate_name?.charAt(0) || '?' }}</div>
+              <div>
+                <h4>{{ selectedMyInterview?.candidate_name }}</h4>
+                <span class="text-muted">{{ selectedMyInterview?.candidate_email }}</span>
+                <span class="mi-id-badge" style="margin-top:4px;display:inline-block">{{ selectedMyInterview?.candidate_id }}</span>
+              </div>
+            </div>
+            <div class="mi-info-grid" *ngIf="selectedMyInterview">
+              <div class="mi-info-chip">
+                <span class="mi-label">Experience</span>
+                <span class="mi-value">{{ selectedMyInterview.candidate_experience }} years</span>
+              </div>
+              <div class="mi-info-chip" *ngIf="selectedMyInterview.candidate_skills">
+                <span class="mi-label">Skills</span>
+                <span class="mi-value">{{ selectedMyInterview.candidate_skills }}</span>
+              </div>
+            </div>
+            <a *ngIf="getMySelectedResumeUrl()" [href]="getMySelectedResumeUrl()" target="_blank" class="mi-resume-link">
+              <i class="fas fa-file-alt"></i>
+              View Resume
+            </a>
+          </div>
+        </div>
+
+        <!-- Job Info -->
+        <div class="mi-detail-section">
+          <h3 class="mi-section-title"><i class="fas fa-briefcase"></i> Job Details</h3>
+          <div class="mi-info-grid" *ngIf="selectedMyInterview">
+            <div class="mi-info-chip">
+              <span class="mi-label">Position</span>
+              <span class="mi-value">{{ selectedMyInterview.job_title }}</span>
+            </div>
+            <div class="mi-info-chip">
+              <span class="mi-label">Department</span>
+              <span class="mi-value">{{ selectedMyInterview.job_department }}</span>
+            </div>
+            <div class="mi-info-chip">
+              <span class="mi-label">Location</span>
+              <span class="mi-value">{{ selectedMyInterview.job_location }}</span>
+            </div>
+          </div>
+          <p class="mi-job-desc" *ngIf="selectedMyInterview?.job_description">{{ selectedMyInterview?.job_description }}</p>
+          <div class="mi-required-skills" *ngIf="selectedMyInterview?.required_skills">
+            <span class="mi-label">Required Skills</span>
+            <div class="mi-skills-chips">
+              <span class="mi-skill-chip" *ngFor="let skill of (selectedMyInterview?.required_skills || '').split(',')">{{ skill.trim() }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback Section -->
+        <div class="mi-detail-section">
+          <h3 class="mi-section-title"><i class="fas fa-comment-dots"></i> Interview Feedback</h3>
+          <div class="mi-feedback-form">
+            <div class="mi-rating-row">
+              <span class="mi-label">Rating</span>
+              <div class="mi-star-rating">
+                <button *ngFor="let star of [1,2,3,4,5]" class="mi-star-btn" [class.active]="myFeedbackRating >= star" (click)="setMyRating(star)">★</button>
+              </div>
+            </div>
+            <div class="mi-feedback-params-grid">
+              <div class="mi-form-group">
+                <label>Technical Skills</label>
+                <select [(ngModel)]="myTechnicalSkills" class="form-input">
+                  <option value="">Select…</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Average">Average</option>
+                  <option value="Below Average">Below Average</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </div>
+              <div class="mi-form-group">
+                <label>Communication Skills</label>
+                <select [(ngModel)]="myCommunicationSkills" class="form-input">
+                  <option value="">Select…</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Average">Average</option>
+                  <option value="Below Average">Below Average</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </div>
+              <div class="mi-form-group">
+                <label>Cultural Fit</label>
+                <select [(ngModel)]="myCulturalFit" class="form-input">
+                  <option value="">Select…</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Average">Average</option>
+                  <option value="Below Average">Below Average</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </div>
+              <div class="mi-form-group">
+                <label>Another Interview Required?</label>
+                <select [(ngModel)]="myAnotherInterviewRequired" class="form-input">
+                  <option value="">Select…</option>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </div>
+            </div>
+            <textarea class="mi-feedback-textarea" [(ngModel)]="myFeedbackText" placeholder="Write your feedback about the candidate…" rows="4"></textarea>
+            <button class="btn btn-primary-blue" style="width: 100%; justify-content: center;" (click)="submitMyFeedback()" [disabled]="isSubmittingMyFeedback || selectedMyInterview?.feedback">
+              <i class="fas fa-spinner fa-spin" *ngIf="isSubmittingMyFeedback" style="margin-right: 6px;"></i>
+              {{ isSubmittingMyFeedback ? 'Submitting…' : (selectedMyInterview?.feedback ? 'Feedback Submitted' : 'Submit Feedback') }}
+            </button>
+          </div>
+        </div>
+      </aside>
+
       <!-- ==================== FALLBACK FOR OTHER TABS ==================== -->
-      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking' && activeTab !== 'Offer Tracker'">
+      <ng-container *ngIf="activeTab !== 'Dashboard' && activeTab !== 'Job Requisition' && activeTab !== 'Jobs' && activeTab !== 'Interview Panel' && activeTab !== 'My Interviews' && activeTab !== 'Scheduling' && activeTab !== 'Candidate Pipeline' && activeTab !== 'Candidate Comparison' && activeTab !== 'Referral Tracking' && activeTab !== 'Offer Tracker'">
         <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
           <div class="dashboard-header">
             <h1>{{ activeTab }}</h1>

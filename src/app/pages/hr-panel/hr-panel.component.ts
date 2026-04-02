@@ -65,6 +65,19 @@ export class HrPanelComponent implements OnInit {
   loggedInAdminName = 'HR';
   loggedInAdminFullName = 'HR Admin';
   loggedInAdminInitial = 'H';
+  loggedInEmployeeId = '';
+
+  // --- My Interviews (HR as interviewer) ---
+  myHrInterviews: any[] = [];
+  isLoadingMyInterviews = false;
+  selectedMyInterview: any = null;
+  myFeedbackText = '';
+  myFeedbackRating = 0;
+  myTechnicalSkills = '';
+  myCommunicationSkills = '';
+  myCulturalFit = '';
+  myAnotherInterviewRequired = '';
+  isSubmittingMyFeedback = false;
 
   constructor(private heroService: HeroService, private auth: AuthService, private router: Router, private http: HttpClient) {}
 
@@ -78,10 +91,12 @@ export class HrPanelComponent implements OnInit {
     this.loadOfferedApplications();
   }
 
+  private readonly RESUME_DOWNLOAD_BASE = 'http://43.242.214.239:81/home/training2025/MAHINDRA_UPLOADS/Intern_Uploads';
+
   async resolveLoggedInUser() {
     let emailOrId = '';
     if (typeof sessionStorage !== 'undefined') {
-      emailOrId = sessionStorage.getItem('displayName') || '';
+      emailOrId = sessionStorage.getItem('displayName') || sessionStorage.getItem('employeeId') || '';
     }
     if (!emailOrId) return;
 
@@ -96,16 +111,23 @@ export class HrPanelComponent implements OnInit {
       if (!arr) return;
       if (!Array.isArray(arr)) arr = [arr];
 
+      const loginId = emailOrId.toLowerCase();
       const me = arr.find((e: any) => 
-        (e.email || '').toLowerCase() === emailOrId.toLowerCase() ||
-        (this.getExt(e.employee_id) || '').toLowerCase() === emailOrId.toLowerCase() ||
-        (e.employee_name || '').toLowerCase() === emailOrId.toLowerCase()
+        (e.email || '').toLowerCase() === loginId ||
+        (this.getExt(e.employee_id) || '').toLowerCase() === loginId ||
+        (e.employee_name || '').toLowerCase() === loginId
       );
 
-      if (me && me.employee_name) {
-        this.loggedInAdminFullName = me.employee_name;
-        this.loggedInAdminName = me.employee_name.split(' ')[0];
-        this.loggedInAdminInitial = this.loggedInAdminName.charAt(0).toUpperCase();
+      if (me) {
+        if (me.employee_name) {
+          this.loggedInAdminFullName = me.employee_name;
+          this.loggedInAdminName = me.employee_name.split(' ')[0];
+          this.loggedInAdminInitial = this.loggedInAdminName.charAt(0).toUpperCase();
+        }
+        this.loggedInEmployeeId = this.getExt(me.employee_id);
+        console.log('[HrPanel] Resolved employee_id:', this.loggedInEmployeeId);
+        // Now load my interviews
+        this.loadMyInterviews();
       }
     } catch (e) {
       console.warn('Could not resolve logged in HR name via getEmployees', e);
@@ -178,6 +200,7 @@ export class HrPanelComponent implements OnInit {
         { name: 'Job Requisition', icon: 'fas fa-briefcase' },
         { name: 'Jobs', icon: 'fas fa-list' },
         { name: 'Interview Panel', icon: 'fas fa-user-tie' },
+        { name: 'My Interviews', icon: 'fas fa-calendar-check' },
         { name: 'Scheduling', icon: 'far fa-calendar-alt' },
         { name: 'Candidate Pipeline', icon: 'fas fa-users' },
         { name: 'Offer Tracker', icon: 'fas fa-file-signature' }
@@ -1312,6 +1335,9 @@ export class HrPanelComponent implements OnInit {
   referralSearchQuery = '';
   isLoadingReferrals = false;
   referralEmployees: any[] = [];
+  allReferralRecords: any[] = [];
+  selectedReferralEmployee: any = null;
+  selectedReferralCandidates: any[] = [];
 
   get filteredReferralEmployees() {
     if (!this.referralSearchQuery.trim()) return this.referralEmployees;
@@ -1334,10 +1360,11 @@ export class HrPanelComponent implements OnInit {
   async loadReferrals() {
     this.isLoadingReferrals = true;
     try {
-      const [referralsResp, employeesResp, applicationsResp] = await Promise.all([
+      const [referralsResp, employeesResp, applicationsResp, candidatesResp] = await Promise.all([
         this.heroService.getEmployeeReferrals(),
         this.heroService.getEmployees(),
-        this.heroService.getCandidateApplications()
+        this.heroService.getCandidateApplications(),
+        this.heroService.getCandidates()
       ]);
 
       const refData = this.heroService.xmltojson(referralsResp, 'tuple');
@@ -1348,6 +1375,9 @@ export class HrPanelComponent implements OnInit {
 
       const appData = this.heroService.xmltojson(applicationsResp, 'tuple');
       const appArray = appData ? (Array.isArray(appData) ? appData : [appData]) : [];
+
+      const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
+      const candArray = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
 
       const ext = (field: any) => field?.text || field?.['#text'] || field || '';
 
@@ -1366,34 +1396,76 @@ export class HrPanelComponent implements OnInit {
         }
       });
 
-      // Create application map for checking hired status
+      // Create candidate map for looking up candidate names
+      const candidateMap = new Map<string, any>();
+      candArray.forEach((c: any) => {
+        const record = c.old?.candidate || c.new?.candidate || c.candidate || c;
+        const candId = ext(record.candidate_id);
+        if (candId) {
+          candidateMap.set(candId, {
+            candidate_id: candId,
+            name: ext(record.name) || ext(record.candidate_name) || candId,
+            email: ext(record.email) || '',
+            phone: ext(record.phone) || '',
+            skills: ext(record.skills) || '',
+            experience: ext(record.experience) || ''
+          });
+        }
+      });
+
+      // Create application map with stage info per candidate
       const hiredCandidateIds = new Set<string>();
+      const candidateStageMap = new Map<string, string>();
       appArray.forEach((a: any) => {
         const record = a.old?.candidate_job_application || a.new?.candidate_job_application || a.candidate_job_application || a;
         const stage = ext(record.stage).toLowerCase();
         const candidateId = ext(record.candidate_id);
+        if (candidateId) {
+          candidateStageMap.set(candidateId, stage);
+        }
         if (stage === 'joined' && candidateId) {
           hiredCandidateIds.add(candidateId);
         }
       });
 
-      // Count referrals per employee
-      const referralCounts = new Map<string, { total: number; successful: number }>();
-      
-      refArray.forEach((r: any) => {
+      // Store all raw referral records enriched with candidate info
+      this.allReferralRecords = refArray.map((r: any) => {
         const record = r.old?.employee_referral || r.new?.employee_referral || r.employee_referral || r;
         const empId = ext(record.employee_id);
         const candidateId = ext(record.candidate_id);
+        const jrId = ext(record.jr_id);
+        const candidate = candidateMap.get(candidateId) || {};
+        const stage = candidateStageMap.get(candidateId) || '';
+        const job = this.jobsList.find(j => j.jr_id === jrId || j.id === jrId);
 
-        if (!empId) return;
+        return {
+          referral_id: ext(record.referral_id),
+          employee_id: empId,
+          candidate_id: candidateId,
+          jr_id: jrId,
+          referral_status: ext(record.referral_status),
+          candidate_name: candidate.name || candidateId,
+          candidate_email: candidate.email || '',
+          candidate_phone: candidate.phone || '',
+          candidate_skills: candidate.skills || '',
+          candidate_experience: candidate.experience || '',
+          job_title: job?.job_title || job?.title || jrId,
+          application_stage: stage,
+          is_hired: hiredCandidateIds.has(candidateId),
+          created_at: ext(record.created_at)
+        };
+      }).filter((r: any) => r.employee_id);
 
+      // Count referrals per employee
+      const referralCounts = new Map<string, { total: number; successful: number }>();
+      
+      this.allReferralRecords.forEach((r: any) => {
+        const empId = r.employee_id;
         const current = referralCounts.get(empId) || { total: 0, successful: 0 };
         current.total++;
-
-        if (hiredCandidateIds.has(candidateId)) {
+        if (r.is_hired) {
           current.successful++;
         }
-
         referralCounts.set(empId, current);
       });
 
@@ -1427,6 +1499,40 @@ export class HrPanelComponent implements OnInit {
   // For backward compatibility with template
   get employees() {
     return this.referralEmployees;
+  }
+
+  viewReferralDetails(employee: any): void {
+    this.selectedReferralEmployee = employee;
+    this.selectedReferralCandidates = this.allReferralRecords.filter(
+      (r: any) => r.employee_id === employee.id
+    );
+    console.log('[HrPanel] Viewing referrals for', employee.name, ':', this.selectedReferralCandidates);
+  }
+
+  closeReferralDetails(): void {
+    this.selectedReferralEmployee = null;
+    this.selectedReferralCandidates = [];
+  }
+
+  getReferralStageLabel(stage: string): string {
+    const labels: { [key: string]: string } = {
+      'applied': 'Applied',
+      'screened': 'Screened',
+      'interviewing': 'Interviewing',
+      'offered': 'Offered',
+      'joined': 'Joined'
+    };
+    return labels[stage] || stage || 'Applied';
+  }
+
+  getReferralStageClass(stage: string): string {
+    switch (stage) {
+      case 'joined': return 'ref-stage-joined';
+      case 'offered': return 'ref-stage-offered';
+      case 'interviewing': return 'ref-stage-interviewing';
+      case 'screened': return 'ref-stage-screened';
+      default: return 'ref-stage-applied';
+    }
   }
 
   // --- Offer Tracker ---
@@ -2264,6 +2370,212 @@ export class HrPanelComponent implements OnInit {
       this.showToast('Failed to generate report.', 'error');
     } finally {
       this.isGeneratingReport = false;
+    }
+  }
+
+  // ===================== MY INTERVIEWS (HR as interviewer) =====================
+
+  async loadMyInterviews() {
+    if (!this.loggedInEmployeeId) return;
+    this.isLoadingMyInterviews = true;
+    try {
+      const [panelResp, interviewResp, candidatesResp, jobsResp] = await Promise.all([
+        this.heroService.getInterviewPanels(),
+        this.heroService.getInterviews(),
+        this.heroService.getCandidates(),
+        this.heroService.getJobRequisitions()
+      ]);
+
+      // Parse panels
+      let panData = this.heroService.xmltojson(panelResp, 'tuple');
+      if (!panData) panData = this.heroService.xmltojson(panelResp, 'interview_panel');
+      if (!panData) panData = [];
+      const panArr = Array.isArray(panData) ? panData : [panData];
+      const allPanels = panArr.map((t: any) => {
+        const r = t.old?.interview_panel || t.new?.interview_panel || t.interview_panel || t;
+        return this.flattenRecord(r);
+      }).filter((p: any) => p.panel_id);
+
+      // Filter panels for this HR user
+      const myPanels = allPanels.filter((p: any) =>
+        (p.interviewer_id || '').toLowerCase() === this.loggedInEmployeeId.toLowerCase()
+      );
+
+      // Parse interviews
+      let intData = this.heroService.xmltojson(interviewResp, 'tuple');
+      if (!intData) intData = this.heroService.xmltojson(interviewResp, 'interview');
+      if (!intData) intData = [];
+      const intArr = Array.isArray(intData) ? intData : [intData];
+      const interviews = intArr.map((t: any) => {
+        const r = t.old?.interview || t.new?.interview || t.interview || t;
+        return this.flattenRecord(r);
+      }).filter((i: any) => i.interview_id);
+
+      // Parse candidates
+      const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
+      const candArr = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
+      const candidateMap = new Map<string, any>();
+      candArr.forEach((t: any) => {
+        const c = t.old?.candidate || t.new?.candidate || t.candidate || t;
+        const candId = this.getExt(c.candidate_id);
+        if (candId) {
+          candidateMap.set(candId, {
+            name: this.getExt(c.name) || this.getExt(c.candidate_name) || candId,
+            email: this.getExt(c.email) || '',
+            skills: this.getExt(c.skills) || '',
+            experience: this.getExt(c.experience) || '0',
+            resume_path: this.getExt(c.resume_path) || ''
+          });
+        }
+      });
+
+      // Parse jobs
+      const jobData = this.heroService.xmltojson(jobsResp, 'job_requisition');
+      const jobsArray = jobData ? (Array.isArray(jobData) ? jobData : [jobData]) : [];
+      const ext = (field: any) => field?.text || field?.['#text'] || field || '';
+      const jobMap = new Map<string, any>();
+      jobsArray.forEach((j: any) => {
+        const record = j.old || j.new || j;
+        const jrId = ext(record.jr_id);
+        if (jrId) {
+          jobMap.set(jrId, {
+            job_title: ext(record.job_title),
+            department: ext(record.department),
+            location: ext(record.location),
+            job_description: ext(record.job_description),
+            required_skills: ext(record.required_skills)
+          });
+        }
+      });
+
+      // Build enriched interviews
+      this.myHrInterviews = myPanels
+        .filter((p: any) => {
+          const temp1 = (p.temp1 || '').toUpperCase();
+          return temp1 === 'ACCEPTED' && !p.feedback;
+        })
+        .map((p: any) => {
+          const interview = interviews.find((i: any) => i.interview_id === p.interview_id) || {};
+          const candidate = candidateMap.get(interview.candidate_id) || {};
+          const job = jobMap.get(interview.jr_id) || {};
+
+          return {
+            panel_id: p.panel_id,
+            interview_id: p.interview_id,
+            interviewer_id: p.interviewer_id,
+            interviewer_name: p.interviewer_name,
+            feedback: p.feedback || '',
+            rating: parseInt(p.rating, 10) || 0,
+            temp2: p.temp2 || '',
+            temp3: p.temp3 || '',
+            temp4: p.temp4 || '',
+            temp5: p.temp5 || '',
+            candidate_name: candidate.name || '',
+            candidate_email: candidate.email || '',
+            candidate_id: interview.candidate_id || '',
+            candidate_skills: candidate.skills || '',
+            candidate_experience: parseInt(candidate.experience, 10) || 0,
+            candidate_resume_path: candidate.resume_path || '',
+            jr_id: interview.jr_id || '',
+            job_title: job.job_title || '',
+            job_department: job.department || '',
+            job_location: job.location || '',
+            job_description: job.job_description || '',
+            required_skills: job.required_skills || '',
+            round: interview.round || '',
+            scheduled_date: interview.scheduled_date || '',
+            scheduled_time: interview.scheduled_time || '',
+            meeting_link: interview.meeting_link || '',
+            interview_status: interview.status || '',
+            raw_panel: p
+          };
+        });
+
+      console.log('[HrPanel] My HR Interviews (accepted, no feedback):', this.myHrInterviews.length);
+    } catch (e) {
+      console.error('[HrPanel] Error loading my interviews:', e);
+    } finally {
+      this.isLoadingMyInterviews = false;
+    }
+  }
+
+  openMyInterviewDetail(interview: any): void {
+    this.selectedMyInterview = interview;
+    this.myFeedbackText = interview.feedback || '';
+    this.myFeedbackRating = interview.rating || 0;
+    this.myTechnicalSkills = interview.temp2 || '';
+    this.myCommunicationSkills = interview.temp3 || '';
+    this.myCulturalFit = interview.temp4 || '';
+    this.myAnotherInterviewRequired = interview.temp5 || '';
+  }
+
+  closeMyInterviewDetail(): void {
+    this.selectedMyInterview = null;
+  }
+
+  setMyRating(rating: number): void {
+    this.myFeedbackRating = rating;
+  }
+
+  async submitMyFeedback(): Promise<void> {
+    if (!this.selectedMyInterview) return;
+    if (this.myFeedbackRating < 1 || this.myFeedbackRating > 5) {
+      this.showToast('Please provide a rating between 1 and 5.', 'error');
+      return;
+    }
+    if (!this.myFeedbackText.trim()) {
+      this.showToast('Please provide your feedback.', 'error');
+      return;
+    }
+
+    this.isSubmittingMyFeedback = true;
+    try {
+      const oldData = this.selectedMyInterview.raw_panel || {
+        panel_id: this.selectedMyInterview.panel_id,
+        interview_id: this.selectedMyInterview.interview_id,
+        interviewer_id: this.selectedMyInterview.interviewer_id
+      };
+      const newData = {
+        ...oldData,
+        interviewer_name: this.selectedMyInterview.interviewer_name,
+        feedback: this.myFeedbackText,
+        rating: this.myFeedbackRating,
+        temp1: 'accepted',
+        temp2: this.myTechnicalSkills,
+        temp3: this.myCommunicationSkills,
+        temp4: this.myCulturalFit,
+        temp5: this.myAnotherInterviewRequired
+      };
+      await this.heroService.updateInterviewPanel(oldData, newData);
+
+      // Remove from local list and close panel
+      const panelId = this.selectedMyInterview.panel_id;
+      this.myHrInterviews = this.myHrInterviews.filter((i: any) => i.panel_id !== panelId);
+      this.closeMyInterviewDetail();
+      this.showToast('Feedback submitted successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+      this.showToast('Failed to submit feedback. Please try again.', 'error');
+    } finally {
+      this.isSubmittingMyFeedback = false;
+    }
+  }
+
+  getMySelectedResumeUrl(): string {
+    const rawPath = this.selectedMyInterview?.candidate_resume_path || '';
+    if (!rawPath) return '';
+    const fileName = rawPath.split(/[/\\]/).pop()?.trim();
+    if (!fileName) return '';
+    return `${this.RESUME_DOWNLOAD_BASE}/${fileName}`;
+  }
+
+  getMyInterviewStatusClass(status: string): string {
+    switch (status) {
+      case 'COMPLETED': return 'mi-status-completed';
+      case 'SCHEDULED': case 'IN_PROGRESS': return 'mi-status-in-progress';
+      case 'PENDING': return 'mi-status-pending';
+      case 'CANCELLED': return 'mi-status-cancelled';
+      default: return 'mi-status-pending';
     }
   }
 }
