@@ -1,4 +1,4 @@
-<div class="peoplify-layout">
+﻿<div class="peoplify-layout">
   <!-- Sidebar -->
   <aside class="peoplify-sidebar" [class.collapsed]="isSidebarCollapsed">
     <div class="sidebar-logo">
@@ -86,7 +86,7 @@
           style="background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
           <div class="greeting-area">
             <h1 style="color: #0F172A; font-weight: 700; font-size: 1.8rem; margin-bottom: 0.2rem;">Good Morning, {{
-              loggedInAdminName }} 👋</h1>
+              loggedInAdminName }}</h1>
             <p class="date-subtitle" style="color: #64748B; font-size: 0.95rem; font-weight: 500;">{{ currentDate |
               date:'EEEE, d MMMM y' }}</p>
           </div>
@@ -357,7 +357,7 @@
 
               <div class="form-row">
                 <div class="form-group half-width">
-                  <label>Location(s) <span style="font-weight: 400; color: #64748B; font-size: 0.8rem;">— select multiple</span></label>
+                  <label>Location(s) <span style="font-weight: 400; color: #64748B; font-size: 0.8rem;">select multiple</span></label>
                   <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; background: #F8FAFC; max-height: 140px; overflow-y: auto;">
                     <label *ngFor="let loc of availableLocations" 
                            (click)="toggleLocation(loc)" 
@@ -679,12 +679,35 @@
             </div>
           </ng-template>
 
-          <!-- ═══ Active Interview Panels Accordion ═══ -->
+          <!-- â•â•â• Already Completed Interview Panels Accordion â•â•â• -->
+          <div class="ip-accordion-container" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
+            <div class="ip-accordion-header" (click)="toggleCompletedInterviewsAccordion()" [class.open]="completedInterviewsAccordionOpen">
+              <div class="ip-accordion-title-row">
+                <i class="fas fa-check-circle" style="color: #64748B; font-size: 1rem;"></i>
+                <h4>Already Completed</h4>
+                <span class="ip-accordion-badge" style="background: #E2E8F0; color: #334155;">{{ completedInterviewPanels.length }}</span>
+              </div>
+              <svg class="ip-accordion-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </div>
+            <div class="ip-accordion-body" *ngIf="completedInterviewsAccordionOpen">
+              <div *ngIf="completedInterviewPanels.length > 0">
+                <ng-container *ngFor="let group of completedInterviewPanels">
+                  <ng-container *ngTemplateOutlet="interviewCardTpl; context: { $implicit: group }"></ng-container>
+                </ng-container>
+              </div>
+              <div *ngIf="completedInterviewPanels.length === 0" class="ip-accordion-empty">
+                <i class="fas fa-history"></i>
+                <p>No completed interviews yet</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- â•â•â• Active Interview Panels Accordion â•â•â• -->
           <div class="ip-accordion-container" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
             <div class="ip-accordion-header" (click)="toggleActiveInterviewsAccordion()" [class.open]="activeInterviewsAccordionOpen">
               <div class="ip-accordion-title-row">
                 <i class="fas fa-bolt" style="color: #10B981; font-size: 1rem;"></i>
-                <h4>Active Interview Panels</h4>
+                <h4>Active Interviews</h4>
                 <span class="ip-accordion-badge active-badge">{{ activeInterviewPanels.length }}</span>
               </div>
               <svg class="ip-accordion-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
@@ -697,12 +720,12 @@
               </div>
               <div *ngIf="activeInterviewPanels.length === 0" class="ip-accordion-empty">
                 <i class="fas fa-check-circle"></i>
-                <p>No active interview panels at this time</p>
+                <p>No active interviews for today</p>
               </div>
             </div>
           </div>
 
-          <!-- ═══ Scheduled for Later Interview Panels Accordion ═══ -->
+          <!-- â•â•â• Scheduled for Later Interview Panels Accordion â•â•â• -->
           <div class="ip-accordion-container" *ngIf="!isLoadingPanels && groupedInterviewPanels.length > 0">
             <div class="ip-accordion-header" (click)="toggleScheduledInterviewsAccordion()" [class.open]="scheduledInterviewsAccordionOpen">
               <div class="ip-accordion-title-row">
@@ -1138,6 +1161,9 @@
               <p class="text-muted">Track and manage all active candidates through the recruitment process.</p>
             </div>
             <div class="header-actions">
+              <button class="btn btn-outline-sm" (click)="openPipelineOverviewModal()">
+                <i class="fas fa-project-diagram"></i> View Pipeline
+              </button>
               <div class="search-bar">
                 <i class="fas fa-search"></i>
                 <input type="text" placeholder="Search candidates..." [(ngModel)]="pipelineSearchQuery">
@@ -1198,13 +1224,13 @@
           <div class="kanban-modal" (click)="$event.stopPropagation()">
             <div class="kanban-modal-header">
               <div class="kanban-header-left">
-                <div class="kanban-avatar" [style.background]="getStageColor(selectedCandidate.stage)">{{ selectedCandidate.avatar }}</div>
+                <div class="kanban-avatar" [style.background]="selectedCandidate ? getStageColor(selectedCandidate.stage) : '#0B2265'">{{ selectedCandidate?.avatar || 'CP' }}</div>
                 <div>
-                  <h2 class="kanban-candidate-name">{{ selectedCandidate.name }}</h2>
-                  <p class="kanban-candidate-role">{{ selectedCandidate.role }} · {{ selectedCandidate.department }}</p>
+                  <h2 class="kanban-candidate-name">{{ selectedCandidate?.name || 'Candidate Pipeline Overview' }}</h2>
+                  <p class="kanban-candidate-role">{{ selectedCandidate ? (selectedCandidate.role + ' - ' + selectedCandidate.department) : 'All active candidates across the pipeline' }}</p>
                 </div>
               </div>
-              <div class="kanban-header-right">
+              <div class="kanban-header-right" *ngIf="selectedCandidate; else pipelineOverviewHeader">
                 <div class="kanban-contact-info">
                   <span><i class="fas fa-envelope"></i> {{ selectedCandidate.email }}</span>
                   <span><i class="fas fa-phone"></i> {{ selectedCandidate.phone }}</span>
@@ -1212,14 +1238,23 @@
                 </div>
                 <button class="modal-close-btn" (click)="closeKanbanModal()"><i class="fas fa-times"></i></button>
               </div>
+              <ng-template #pipelineOverviewHeader>
+                <div class="kanban-header-right">
+                  <div class="kanban-contact-info">
+                    <span><i class="fas fa-users"></i> {{ visiblePipelineCandidatesCount }} active candidates</span>
+                    <span><i class="fas fa-columns"></i> {{ getVisiblePipelineStages().length }} stages</span>
+                  </div>
+                  <button class="modal-close-btn" (click)="closeKanbanModal()"><i class="fas fa-times"></i></button>
+                </div>
+              </ng-template>
             </div>
 
             <!-- Kanban Board -->
             <div class="kanban-board">
               <div class="kanban-column"
-                   *ngFor="let stage of pipelineStages"
+                   *ngFor="let stage of getVisiblePipelineStages()"
                    [class.kanban-drag-over]="dragOverStage === stage.id"
-                   [class.kanban-current]="selectedCandidate.stage === stage.id"
+                   [class.kanban-current]="selectedCandidate?.stage === stage.id"
                    (dragover)="onDragOver($event, stage.id)"
                    (dragleave)="onDragLeave($event, stage.id)"
                    (drop)="onDrop($event, stage.id)">
@@ -1237,7 +1272,7 @@
                   <div class="kanban-card"
                        *ngFor="let c of getCandidatesByStage(stage.id)"
                        draggable="true"
-                       [class.kanban-card-highlight]="selectedCandidate.application_id === c.application_id"
+                       [class.kanban-card-highlight]="selectedCandidate?.application_id === c.application_id"
                        [class.kanban-card-dragging]="draggedCandidate?.application_id === c.application_id"
                        (dragstart)="onDragStart($event, c)"
                        (dragend)="onDragEnd()">
@@ -1668,8 +1703,8 @@
                   <input type="date" class="form-input" [(ngModel)]="offerForm.date_of_joining" name="doj">
                 </div>
                 <div class="form-group mb-0">
-                  <label>Salary Offered (₹) <span class="text-red-500">*</span></label>
-                  <input type="text" class="form-input" [(ngModel)]="offerForm.salary_offered" name="salary" placeholder="e.g. ₹ 8,00,000" required>
+                  <label>Salary Offered (â‚¹) <span class="text-red-500">*</span></label>
+                  <input type="text" class="form-input" [(ngModel)]="offerForm.salary_offered" name="salary" placeholder="e.g. â‚¹ 8,00,000" required>
                 </div>
               </div>
               
@@ -1694,7 +1729,7 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.95rem;">
                 <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Candidate Name</span><strong style="color: #1E293B;">{{ getExt(selectedOfferCandidate?.raw?.candidate_name) }}</strong></div>
                 <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Role</span><strong style="color: #1E293B;">{{ selectedOfferJob?.job_title }}</strong></div>
-                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Salary</span><strong style="color: #10B981;">₹ {{ offerForm.salary_offered }}</strong></div>
+                <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Salary</span><strong style="color: #10B981;">â‚¹ {{ offerForm.salary_offered }}</strong></div>
                 <div><span style="color: #64748B; display: block; font-size: 0.8rem; text-transform: uppercase;">Joining Date</span><strong style="color: #1E293B;">{{ offerForm.date_of_joining || 'TBD' }}</strong></div>
               </div>
             </div>
@@ -1964,3 +1999,5 @@
   <i [class]="toastType === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
   <span>{{ toastMessage }}</span>
 </div>
+
+

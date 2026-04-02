@@ -532,6 +532,8 @@ ul {
   display: flex;
   gap: 15px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .search-bar {
@@ -1073,6 +1075,7 @@ textarea.form-input {
 /* ------------------- INTERVIEW PANEL TAB ------------------- */
 .panel-stats-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -1085,7 +1088,8 @@ textarea.form-input {
   border: 1px solid #E2E8F0;
   border-radius: 12px;
   padding: 20px 24px;
-  flex: 1;
+  flex: 1 1 calc(33.333% - 14px);
+  min-width: 220px;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -3083,4 +3087,4 @@ textarea.form-input {
   background: rgba(11, 34, 101, 0.07);
   color: #0B2265;
 }
-
+

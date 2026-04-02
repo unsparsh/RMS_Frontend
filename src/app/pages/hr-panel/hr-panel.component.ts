@@ -278,9 +278,14 @@ export class HrPanelComponent implements OnInit {
   interviewPanelCurrentPage = 1;
   interviewPanelPageSize = 5;
 
-  // --- Accordion State (both closed by default) ---
+  // --- Accordion State (all closed by default) ---
+  completedInterviewsAccordionOpen = false;
   activeInterviewsAccordionOpen = false;
   scheduledInterviewsAccordionOpen = false;
+
+  toggleCompletedInterviewsAccordion() {
+    this.completedInterviewsAccordionOpen = !this.completedInterviewsAccordionOpen;
+  }
 
   toggleActiveInterviewsAccordion() {
     this.activeInterviewsAccordionOpen = !this.activeInterviewsAccordionOpen;
@@ -326,24 +331,38 @@ export class HrPanelComponent implements OnInit {
     return result;
   }
 
-  /** Active = scheduled_date is today or in the past */
+  /** Completed = scheduled_date is before today */
+  get completedInterviewPanels() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return this.groupedInterviewPanels.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
+      const d = new Date(g.scheduled_date);
+      d.setHours(0, 0, 0, 0);
+      return d < today;
+    });
+  }
+
+  /** Active = only interviews scheduled for today */
   get activeInterviewPanels() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return this.groupedInterviewPanels.filter(g => {
-      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return true; // treat unscheduled as active
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
       const d = new Date(g.scheduled_date);
-      return d <= today;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
     });
   }
 
-  /** Scheduled for later = scheduled_date is in the future */
+  /** Scheduled for later = tomorrow and after */
   get scheduledLaterInterviewPanels() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return this.groupedInterviewPanels.filter(g => {
       if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
       const d = new Date(g.scheduled_date);
+      d.setHours(0, 0, 0, 0);
       return d > today;
     });
   }
@@ -1042,13 +1061,14 @@ export class HrPanelComponent implements OnInit {
   }
 
   // --- Candidate Pipeline ---
-  pipelineStages = [
+  readonly basePipelineStages = [
     { id: 'applied', name: 'Applied', icon: 'fas fa-inbox', color: '#0B2265' },
     { id: 'screened', name: 'Screened', icon: 'fas fa-filter', color: '#2F4B8F' },
     { id: 'interviewing', name: 'Round 1', icon: 'fas fa-comments', color: '#0088A8' },
     { id: 'offered', name: 'Offered', icon: 'fas fa-file-signature', color: '#00C4F0' },
     { id: 'joined', name: 'Joined', icon: 'fas fa-check-circle', color: '#10B981' }
   ];
+  pipelineStages = [...this.basePipelineStages];
 
   isLoadingCandidates = false;
   candidates: any[] = [];
@@ -1081,8 +1101,22 @@ export class HrPanelComponent implements OnInit {
     return this.filteredCandidates.filter(c => !['joined', 'revoked', 'withdrawn'].includes(c.stage));
   }
 
+  get visiblePipelineCandidatesCount() {
+    const visibleStageIds = new Set(this.pipelineStages.map(stage => stage.id));
+    const uniqueCandidateIds = new Set(
+      this.activeCandidates
+        .filter(c => visibleStageIds.has(c.stage))
+        .map(c => c.candidate_id)
+        .filter(Boolean)
+    );
+    return uniqueCandidateIds.size;
+  }
+
   getCandidatesByStage(stageId: string) {
-    return this.candidates.filter(c => c.stage === stageId);
+    const source = this.selectedCandidate
+      ? this.filteredCandidates.filter(c => c.application_id === this.selectedCandidate.application_id)
+      : this.filteredCandidates;
+    return source.filter(c => c.stage === stageId);
   }
 
   getStageName(stageId: string): string {
@@ -1095,8 +1129,63 @@ export class HrPanelComponent implements OnInit {
     return stage ? stage.color : '#64748B';
   }
 
+  getVisiblePipelineStages() {
+    if (!this.selectedCandidate) {
+      return this.pipelineStages;
+    }
+
+    const currentStage = this.selectedCandidate.stage || '';
+    const currentRoundMatch = currentStage.match(/^interviewing(\d+)$/);
+
+    if (!currentRoundMatch) {
+      return this.pipelineStages.filter(stage => !/^interviewing\d+$/.test(stage.id));
+    }
+
+    const maxVisibleRound = parseInt(currentRoundMatch[1], 10);
+    return this.pipelineStages.filter(stage => {
+      if (!/^interviewing\d+$/.test(stage.id)) {
+        return true;
+      }
+      const roundNumber = parseInt(stage.id.replace('interviewing', ''), 10);
+      return roundNumber <= maxVisibleRound;
+    });
+  }
+
+  syncPipelineStagesFromCandidates() {
+    const extraInterviewStages = Array.from(
+      new Set(
+        this.candidates
+          .map(c => c.stage)
+          .filter((stage: string) => /^interviewing\d+$/.test(stage))
+      )
+    )
+      .sort((a, b) => {
+        const aNum = parseInt(a.replace('interviewing', ''), 10);
+        const bNum = parseInt(b.replace('interviewing', ''), 10);
+        return aNum - bNum;
+      })
+      .map(stageId => {
+        const roundNumber = parseInt(stageId.replace('interviewing', ''), 10);
+        return {
+          id: stageId,
+          name: `Round ${roundNumber}`,
+          icon: 'fas fa-comments',
+          color: '#0088A8'
+        };
+      });
+
+    const interviewingIndex = this.basePipelineStages.findIndex(stage => stage.id === 'interviewing');
+    this.pipelineStages = [...this.basePipelineStages];
+    this.pipelineStages.splice(interviewingIndex + 1, 0, ...extraInterviewStages);
+  }
+
   openKanbanModal(candidate: any) {
     this.selectedCandidate = candidate;
+    this.showKanbanModal = true;
+  }
+
+  openPipelineOverviewModal() {
+    this.selectedCandidate = null;
     this.showKanbanModal = true;
   }
 
@@ -1239,6 +1328,7 @@ export class HrPanelComponent implements OnInit {
         };
       }).filter((c: any) => c.candidate_id && c.name);
 
+      this.syncPipelineStagesFromCandidates();
       console.log('[HrPanel] Loaded candidates:', this.candidates);
       this.calculateApplicantCounts();
     } catch (e) {
