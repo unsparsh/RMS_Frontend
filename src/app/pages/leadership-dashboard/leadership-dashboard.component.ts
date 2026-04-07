@@ -163,6 +163,10 @@ export class LeadershipDashboardComponent implements OnInit {
   employeePage = 1;
   employeePageSize = 10;
 
+  // Pagination for Jobs (Active Jobs tab)
+  jobPage = 1;
+  readonly jobPageSize = 4;
+
   // Accordion toggle states
   jobAccordionOpen = true;
   offerAccordionOpen = true;
@@ -597,7 +601,7 @@ export class LeadershipDashboardComponent implements OnInit {
 
   get filteredJobs(): JobRequisition[] {
     const q = this.jobSearch.toLowerCase();
-    return this.jobs.filter(j =>
+    const filtered = this.jobs.filter(j =>
       j.job_title.toLowerCase().includes(q) ||
       j.department.toLowerCase().includes(q) ||
       j.location.toLowerCase().includes(q) ||
@@ -607,6 +611,30 @@ export class LeadershipDashboardComponent implements OnInit {
       const bNum = parseInt(b.jr_id.replace(/\D/g, ''), 10) || 0;
       return bNum - aNum;
     });
+
+    // Clamp jobPage if search reduces total pages
+    const totalPages = Math.max(1, Math.ceil(filtered.length / this.jobPageSize));
+    if (this.jobPage > totalPages) {
+      this.jobPage = totalPages;
+    }
+
+    return filtered;
+  }
+
+  get paginatedJobs(): JobRequisition[] {
+    const start = (this.jobPage - 1) * this.jobPageSize;
+    return this.filteredJobs.slice(start, start + this.jobPageSize);
+  }
+
+  get jobTotalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredJobs.length / this.jobPageSize));
+  }
+
+  changeJobPage(delta: number): void {
+    const next = this.jobPage + delta;
+    if (next >= 1 && next <= this.jobTotalPages) {
+      this.jobPage = next;
+    }
   }
 
   get filteredEmployees(): Employee[] {

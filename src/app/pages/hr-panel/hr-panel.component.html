@@ -479,6 +479,26 @@
               </div>
             </div>
           </div>
+          
+          <!-- ===== DISABLE JOB CONFIRMATION MODAL ===== -->
+          <div class="modal-backdrop confirm-backdrop" *ngIf="showDisableJobModal" (click)="closeDisableJobModal()">
+            <div class="confirm-dialog" (click)="$event.stopPropagation()">
+              <div class="confirm-icon-wrapper" style="background-color: #FEE2E2; color: #EF4444;">
+                <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+              </div>
+              <h3 class="confirm-title">Confirm Deactivation</h3>
+              <p class="confirm-message">
+                Are you sure you want to mark the job <strong>{{ jobToDisable?.title }}</strong> as INACTIVE?
+              </p>
+              <div class="confirm-actions">
+                <button class="btn btn-outline-sm" (click)="closeDisableJobModal()">Cancel</button>
+                <button class="btn btn-primary-blue" style="background-color: #EF4444; border-color: #EF4444;" (click)="confirmDisableJob()">
+                  <i class="fas fa-ban"></i> Deactivate Job
+                </button>
+              </div>
+            </div>
+          </div>
+          
         </div>
       </ng-container>
 
@@ -2003,8 +2023,8 @@
       </aside>
 
       <!-- ==================== HR DELEGATION MODAL ==================== -->
-      <div class="modal-backdrop" *ngIf="showHrDelegateModal" (click)="closeHrDelegateModal()"></div>
-      <div class="modal-dialog" *ngIf="showHrDelegateModal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; max-width: 520px; width: 90%; background: white; border-radius: 16px; box-shadow: 0 25px 60px rgba(0,0,0,0.25); padding: 0; overflow: hidden;" (click)="$event.stopPropagation()">
+      <div class="modal-backdrop" *ngIf="showHrDelegateModal" (click)="closeHrDelegateModal()">
+        <div class="modal-dialog" style="max-width: 520px; width: 90%; padding: 0; overflow: hidden;" (click)="$event.stopPropagation()">
         <div class="modal-header-row" style="padding: 20px 24px; border-bottom: 1px solid #E2E8F0;">
           <h3 style="margin: 0; font-size: 1.15rem; color: #0F172A;"><i class="fas fa-share text-blue" style="margin-right: 8px;"></i>Delegate Interview</h3>
           <button class="modal-close-btn" (click)="closeHrDelegateModal()"><i class="fas fa-times"></i></button>
@@ -2027,12 +2047,13 @@
             <textarea [(ngModel)]="delegateHrReason" class="form-input" placeholder="Reason for delegating…" rows="3" style="resize: vertical;"></textarea>
           </div>
         </div>
-        <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid #E2E8F0; background: #F8FAFC;">
-          <button class="btn btn-outline-sm" (click)="closeHrDelegateModal()">Cancel</button>
-          <button class="btn btn-primary-blue" (click)="confirmHrDelegate()" [disabled]="!delegateHrEmployeeId || isHrDelegating">
-            <i class="fas fa-spinner fa-spin" *ngIf="isHrDelegating" style="margin-right: 6px;"></i>
-            {{ isHrDelegating ? 'Delegating…' : 'Confirm Delegation' }}
-          </button>
+          <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid #E2E8F0; background: #F8FAFC;">
+            <button class="btn btn-outline-sm" (click)="closeHrDelegateModal()">Cancel</button>
+            <button class="btn btn-primary-blue" (click)="confirmHrDelegate()" [disabled]="!delegateHrEmployeeId || isHrDelegating">
+              <i class="fas fa-spinner fa-spin" *ngIf="isHrDelegating" style="margin-right: 6px;"></i>
+              {{ isHrDelegating ? 'Delegating…' : 'Confirm Delegation' }}
+            </button>
+          </div>
         </div>
       </div>
 

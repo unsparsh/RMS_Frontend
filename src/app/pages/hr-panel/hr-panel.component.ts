@@ -435,6 +435,13 @@ export class HrPanelComponent implements OnInit {
   activeInterviewsAccordionOpen = false;
   scheduledInterviewsAccordionOpen = false;
 
+  // Cached interview panel groupings to avoid recomputing large
+  // arrays on every change detection / accordion toggle.
+  private groupedInterviewPanelsCache: any[] = [];
+  private completedInterviewPanelsCache: any[] = [];
+  private activeInterviewPanelsCache: any[] = [];
+  private scheduledLaterInterviewPanelsCache: any[] = [];
+
   toggleCompletedInterviewsAccordion() {
     this.completedInterviewsAccordionOpen = !this.completedInterviewsAccordionOpen;
   }
@@ -448,75 +455,22 @@ export class HrPanelComponent implements OnInit {
   }
 
   get groupedInterviewPanels() {
-    const groups: { [key: string]: any } = {};
-    // Group interviews by interview_id and include candidate info
-    for (const interview of this.allInterviews) {
-      const iId = interview.interview_id || 'Unknown Interview';
-      groups[iId] = {
-        interview_id: iId,
-        interview: interview,
-        candidate_id: interview.candidate_id || '',
-        candidate_name: interview.candidate_name || interview.candidate_id || 'Unknown',
-        jr_id: interview.jr_id || '',
-        round: interview.round || 'N/A',
-        scheduled_date: interview.scheduled_date || 'Not scheduled',
-        scheduled_time: interview.scheduled_time || '',
-        status: interview.status || 'SCHEDULED',
-        meeting_link: interview.meeting_link || ''
-      };
-    }
-    // Return an array of grouped objects
-    let result = Object.keys(groups).map(key => groups[key]);
-
-    // Apply search filter across both accordions
-    if (this.panelSearchQuery.trim()) {
-      const q = this.panelSearchQuery.toLowerCase();
-      result = result.filter(g =>
-        (g.candidate_name || '').toLowerCase().includes(q) ||
-        (g.interview_id || '').toLowerCase().includes(q) ||
-        (g.jr_id || '').toLowerCase().includes(q) ||
-        (g.round || '').toLowerCase().includes(q) ||
-        (g.status || '').toLowerCase().includes(q)
-      );
-    }
-
-    return result;
+    return this.groupedInterviewPanelsCache;
   }
 
   /** Completed = scheduled_date is before today */
   get completedInterviewPanels() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return this.groupedInterviewPanels.filter(g => {
-      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
-      const d = new Date(g.scheduled_date);
-      d.setHours(0, 0, 0, 0);
-      return d < today;
-    });
+    return this.completedInterviewPanelsCache;
   }
 
   /** Active = only interviews scheduled for today */
   get activeInterviewPanels() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return this.groupedInterviewPanels.filter(g => {
-      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
-      const d = new Date(g.scheduled_date);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() === today.getTime();
-    });
+    return this.activeInterviewPanelsCache;
   }
 
   /** Scheduled for later = tomorrow and after */
   get scheduledLaterInterviewPanels() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return this.groupedInterviewPanels.filter(g => {
-      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
-      const d = new Date(g.scheduled_date);
-      d.setHours(0, 0, 0, 0);
-      return d > today;
-    });
+    return this.scheduledLaterInterviewPanelsCache;
   }
 
   get paginatedActiveInterviewPanels() {
@@ -547,6 +501,72 @@ export class HrPanelComponent implements OnInit {
 
   onPanelSearchChange() {
     this.interviewPanelCurrentPage = 1;
+    this.recomputeInterviewPanelCaches();
+  }
+
+  /**
+   * Recompute all cached interview panel groupings and buckets.
+   * This runs only when data or the search query changes, rather
+   * than on every change detection cycle.
+   */
+  private recomputeInterviewPanelCaches() {
+    const groups: { [key: string]: any } = {};
+    // Group interviews by interview_id and include candidate info
+    for (const interview of this.allInterviews) {
+      const iId = interview.interview_id || 'Unknown Interview';
+      groups[iId] = {
+        interview_id: iId,
+        interview: interview,
+        candidate_id: interview.candidate_id || '',
+        candidate_name: interview.candidate_name || interview.candidate_id || 'Unknown',
+        jr_id: interview.jr_id || '',
+        round: interview.round || 'N/A',
+        scheduled_date: interview.scheduled_date || 'Not scheduled',
+        scheduled_time: interview.scheduled_time || '',
+        status: interview.status || 'SCHEDULED',
+        meeting_link: interview.meeting_link || ''
+      };
+    }
+
+    let result = Object.keys(groups).map(key => groups[key]);
+
+    // Apply search filter across accordions
+    if (this.panelSearchQuery && this.panelSearchQuery.trim()) {
+      const q = this.panelSearchQuery.toLowerCase();
+      result = result.filter(g =>
+        (g.candidate_name || '').toLowerCase().includes(q) ||
+        (g.interview_id || '').toLowerCase().includes(q) ||
+        (g.jr_id || '').toLowerCase().includes(q) ||
+        (g.round || '').toLowerCase().includes(q) ||
+        (g.status || '').toLowerCase().includes(q)
+      );
+    }
+
+    this.groupedInterviewPanelsCache = result;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    this.completedInterviewPanelsCache = result.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
+      const d = new Date(g.scheduled_date);
+      d.setHours(0, 0, 0, 0);
+      return d < today;
+    });
+
+    this.activeInterviewPanelsCache = result.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
+      const d = new Date(g.scheduled_date);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
+    });
+
+    this.scheduledLaterInterviewPanelsCache = result.filter(g => {
+      if (!g.scheduled_date || g.scheduled_date === 'Not scheduled') return false;
+      const d = new Date(g.scheduled_date);
+      d.setHours(0, 0, 0, 0);
+      return d > today;
+    });
   }
 
   async loadInterviewPanels() {
@@ -1287,13 +1307,27 @@ export class HrPanelComponent implements OnInit {
     candidateInterviews.sort((a: any, b: any) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
     
     for (const interview of candidateInterviews) {
-      const panels = this.allPanelRecords.filter((p: any) => p.interview_id === interview.interview_id);
-      for (const panel of panels) {
-        if (panel.feedback && panel.rating) {
-           return { feedback: panel.feedback, rating: panel.rating };
-        }
+      const panels = this.getPanelsForInterview(interview.interview_id);
+      const submitted = panels.filter((p: any) => p.feedback && p.rating);
+      if (submitted.length === 0) {
+        continue;
       }
+
+      const avg =
+        Math.round(
+          (submitted.reduce((sum: number, p: any) => sum + (parseFloat(p.rating) || 0), 0) / submitted.length) * 100
+        ) / 100;
+
+      const feedback = submitted
+        .map((p: any) => {
+          const name = p.interviewer_name || p.interviewer_id || 'Interviewer';
+          return `${name}: ${p.feedback}`;
+        })
+        .join(' | ');
+
+      return { feedback, rating: String(avg) };
     }
+
     return { feedback: 'Pending', rating: 'N/A' };
   }
 
@@ -2215,7 +2249,7 @@ export class HrPanelComponent implements OnInit {
         this.jobsList = jobsArray.map((j: any) => {
           const record = j.old?.job_requisition || j.new?.job_requisition || j.job_requisition || j;
           return {
-            id: ext(record.requisition_id) || ext(record.id) || 'N/A',
+            id: ext(record.jr_id) || ext(record.requisition_id) || ext(record.id) || 'N/A',
             title: ext(record.job_title),
             department: ext(record.department),
             location: ext(record.location) || 'Remote',
@@ -2264,38 +2298,55 @@ export class HrPanelComponent implements OnInit {
     this.showToast(`Switched to editing mode for ${job.title}`, 'success');
   }
 
+  showDisableJobModal = false;
+  jobToDisable: any = null;
+
   deleteJob(job: any) {
-    if (confirm(`Are you sure you want to mark '${job.title}' as INACTIVE?`)) {
-      if (!job.raw) return;
-      const ext = (field: any) => field?.text || field?.['#text'] || field || '';
-      const updatedData = {
-        job_title: ext(job.raw.job_title),
-        department: ext(job.raw.department),
-        location: ext(job.raw.location),
-        job_description: ext(job.raw.job_description),
-        required_skills: ext(job.raw.required_skills),
-        min_experience: ext(job.raw.min_experience),
-        max_experience: ext(job.raw.max_experience),
-        salary_range: ext(job.raw.salary_range),
-        no_of_positions: ext(job.raw.no_of_positions),
-        priority: ext(job.raw.priority),
-        approval_status: ext(job.raw.approval_status),
-        closing_date: ext(job.raw.closing_date),
-        status: 'INACTIVE',
-        modified_at: new Date().toISOString()
-      };
-      this.isLoadingJobs = true;
-      this.heroService.updateJobRequisition(job.id, updatedData)
-        .then(() => {
-          this.showToast(`Job ${job.title} marked as INACTIVE.`, 'success');
-          this.loadJobs();
-        })
-        .catch((error: any) => {
-          console.error('Error disabling job requisition:', error);
-          this.showToast('Failed to mark job as INACTIVE.', 'error');
-          this.isLoadingJobs = false;
-        });
+    this.jobToDisable = job;
+    this.showDisableJobModal = true;
+  }
+
+  confirmDisableJob() {
+    const job = this.jobToDisable;
+    if (!job || !job.raw) {
+      this.closeDisableJobModal();
+      return;
     }
+    const ext = (field: any) => field?.text || field?.['#text'] || field || '';
+    const updatedData = {
+      job_title: ext(job.raw.job_title),
+      department: ext(job.raw.department),
+      location: ext(job.raw.location),
+      job_description: ext(job.raw.job_description),
+      required_skills: ext(job.raw.required_skills),
+      min_experience: ext(job.raw.min_experience),
+      max_experience: ext(job.raw.max_experience),
+      salary_range: ext(job.raw.salary_range),
+      no_of_positions: ext(job.raw.no_of_positions),
+      priority: ext(job.raw.priority),
+      approval_status: ext(job.raw.approval_status),
+      closing_date: ext(job.raw.closing_date),
+      status: 'ACTIVE/INACTIVE' === 'ACTIVE/INACTIVE' ? 'INACTIVE' : 'INACTIVE', // ensure inactive status
+      modified_at: new Date().toISOString()
+    };
+    this.isLoadingJobs = true;
+    this.heroService.updateJobRequisition(job.id, updatedData)
+      .then(() => {
+        this.showToast(`Job ${job.title} marked as INACTIVE.`, 'success');
+        this.loadJobs();
+      })
+      .catch((error: any) => {
+        console.error('Error disabling job requisition:', error);
+        this.showToast('Failed to mark job as INACTIVE.', 'error');
+        this.isLoadingJobs = false;
+      });
+    
+    this.closeDisableJobModal();
+  }
+
+  closeDisableJobModal() {
+    this.showDisableJobModal = false;
+    this.jobToDisable = null;
   }
 
   get filteredJobs() {
@@ -2355,6 +2406,7 @@ export class HrPanelComponent implements OnInit {
 
   allInterviews: any[] = [];
   allPanelRecords: any[] = [];
+  private panelsByInterviewId: { [interviewId: string]: any[] } = {};
 
   showFeedbackReviewModal = false;
   reviewingCandidate: any = null;
@@ -2414,6 +2466,35 @@ export class HrPanelComponent implements OnInit {
         return this.flattenRecord(r);
       }).filter((p: any) => p.panel_id);
 
+      // Build fast lookup map of panels by interview_id to avoid
+      // repeatedly scanning the full array on every change detection
+      // when accordions are toggled.
+      this.panelsByInterviewId = {};
+      for (const panel of this.allPanelRecords) {
+        const temp1 = (panel.temp1 || '').toLowerCase();
+        const isDelegated = temp1 === 'delegated';
+        const hasSubmitted = !!(panel.feedback && panel.rating);
+
+        // If an interviewer delegated away this interview and they did not
+        // submit feedback/rating, do not show them anywhere in the panel UI.
+        // Keep historical visibility only when feedback/rating already exists.
+        if (isDelegated && !hasSubmitted) {
+          continue;
+        }
+
+        const interviewId = panel.interview_id;
+        if (!interviewId) {
+          continue;
+        }
+        if (!this.panelsByInterviewId[interviewId]) {
+          this.panelsByInterviewId[interviewId] = [];
+        }
+        this.panelsByInterviewId[interviewId].push(panel);
+      }
+
+      // Panels and interviews changed, refresh cached groupings
+      this.recomputeInterviewPanelCaches();
+
       console.log('[HrPanel] Loaded interviews:', this.allInterviews.length, 'panels:', this.allPanelRecords.length);
     } catch (e) {
       console.error('[HrPanel] Error loading interviews/panels:', e);
@@ -2440,7 +2521,7 @@ export class HrPanelComponent implements OnInit {
   }
 
   getPanelsForInterview(interviewId: string): any[] {
-    return this.allPanelRecords.filter((p: any) => p.interview_id === interviewId);
+    return this.panelsByInterviewId[interviewId] || [];
   }
 
   isInterviewStageId(stageId: string): boolean {

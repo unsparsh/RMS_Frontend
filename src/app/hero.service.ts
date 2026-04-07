@@ -314,16 +314,15 @@ export class HeroService {
         old: {
           job_requisition: {
             '@qConstraint': '0',
-            jr_id: jr_id,
-            modified_by: sessionStorage.getItem('displayName') || 'HR'
+            jr_id: jr_id
           }
         },
         new: {
           job_requisition: {
-            qAccess: '0',
-            qConstraint: '0',
-            qInit: '0',
-            qValues: '',
+            '@qAccess': '0',
+            '@qConstraint': '0',
+            '@qInit': '0',
+            '@qValues': '',
             job_title: data.job_title || '',
             department: data.department || '',
             location: data.location || '',

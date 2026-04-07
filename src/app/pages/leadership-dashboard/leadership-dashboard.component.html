@@ -216,7 +216,7 @@
       </div>
 
       <div class="cards-grid">
-        <div *ngFor="let job of filteredJobs" class="job-card">
+        <div *ngFor="let job of paginatedJobs" class="job-card">
           <div class="job-card-header">
             <div>
               <span class="id-badge">{{ job.jr_id }}</span>
@@ -258,6 +258,19 @@
             <span class="closing-date">Closes: {{ job.closing_date }}</span>
           </div>
         </div>
+      </div>
+
+      <!-- Jobs Pagination -->
+      <div class="jobs-pagination" *ngIf="jobTotalPages > 1">
+        <button class="page-btn" [disabled]="jobPage === 1" (click)="changeJobPage(-1)">
+          ‹ Prev
+        </button>
+        <span class="page-info">
+          Page {{ jobPage }} of {{ jobTotalPages }}
+        </span>
+        <button class="page-btn" [disabled]="jobPage === jobTotalPages" (click)="changeJobPage(1)">
+          Next ›
+        </button>
       </div>
 
       <div *ngIf="filteredJobs.length === 0" class="empty-state">

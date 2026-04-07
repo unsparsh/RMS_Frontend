@@ -645,8 +645,10 @@
 /* ========== JOB CARDS GRID ========== */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .job-card {
@@ -686,11 +688,12 @@
   line-height: 1.5;
 }
 
-.job-card-meta {
+ .job-card-meta {
   display: flex;
   align-items: center;
-  gap: 20px;
-}
+  gap: 16px;
+  flex-wrap: wrap;
+ }
 
 .meta-item {
   display: flex;
@@ -1036,9 +1039,46 @@
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1200px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .cards-grid { grid-template-columns: 1fr; }
+  .cards-grid { grid-template-columns: minmax(0, 1fr); }
   .charts-grid { grid-template-columns: 1fr; }
   .approval-details-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.jobs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.jobs-pagination .page-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.jobs-pagination .page-btn {
+  border-radius: 999px;
+  padding: 6px 14px;
+  border: 1px solid var(--card-border);
+  background: #FFFFFF;
+  color: var(--navy);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jobs-pagination .page-btn:hover:not(:disabled) {
+  background: var(--navy);
+  color: #FFFFFF;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.15);
+}
+
+.jobs-pagination .page-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
 }
 
 @media (max-width: 768px) {
