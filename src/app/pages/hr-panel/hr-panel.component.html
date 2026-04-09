@@ -1480,16 +1480,53 @@
                     </select>
                   </div>
 
-                  <!-- Expected Salary -->
-                  <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Expected Salary (Annual)</label>
-                    <input type="text" class="form-input" placeholder="e.g. ₹ 15,00,000" [(ngModel)]="newCandidateForm.expectedSalary" name="candSalary">
+                  <!-- Expected Salary & Current CTC -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Current CTC</label>
+                      <input type="text" class="form-input" placeholder="e.g. ₹ 10,00,000" [(ngModel)]="newCandidateForm.currentCtc" name="candCurrentCtc">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Expected Salary (Annual)</label>
+                      <input type="text" class="form-input" placeholder="e.g. ₹ 15,00,000" [(ngModel)]="newCandidateForm.expectedSalary" name="candSalary">
+                    </div>
+                  </div>
+
+                  <!-- Notice Period & Willing to Relocate -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Notice Period (Days)</label>
+                      <input type="number" class="form-input" placeholder="e.g. 30" min="0" step="1" [(ngModel)]="newCandidateForm.noticePeriod" name="candNoticePeriod">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Willing to Relocate</label>
+                      <div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; height: 42px;">
+                        <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
+                          <input type="checkbox" [(ngModel)]="newCandidateForm.willingToRelocate" name="candRelocate" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;">
+                          <div style="width: 44px; height: 24px; border-radius: 12px; transition: all 0.3s ease; position: relative;"
+                               [style.background]="newCandidateForm.willingToRelocate ? 'linear-gradient(135deg, #0B2265, #00C4F0)' : '#CBD5E1'">
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: white; position: absolute; top: 2px; transition: all 0.3s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"
+                                 [style.left]="newCandidateForm.willingToRelocate ? '22px' : '2px'"></div>
+                          </div>
+                        </label>
+                        <span style="font-size: 0.82rem; color: #475569; font-weight: 500;">{{ newCandidateForm.willingToRelocate ? 'Yes' : 'No' }}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Relevant Skills -->
                   <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Relevant Skills for this Role</label>
                     <textarea class="form-input" rows="3" placeholder="Briefly describe the candidate's relevant skills for this role..." [(ngModel)]="newCandidateForm.relevantSkills" name="candRelSkills" style="resize: none;"></textarea>
+                  </div>
+
+                  <!-- Application Source -->
+                  <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Application Source</label>
+                    <select class="form-input" [(ngModel)]="newCandidateForm.applicationSource" name="candSource">
+                      <option value="" disabled selected>-- How did candidate hear about this job? --</option>
+                      <option *ngFor="let src of applicationSourceOptions" [value]="src">{{ src }}</option>
+                    </select>
                   </div>
 
                   <!-- Referral Section -->
