@@ -1039,6 +1039,8 @@ export class HeroService {
     temp1?: string;
     temp2?: string;
     temp3?: string;
+    temp4?: string;
+    temp5?: string;
   }): Promise<any> {
     const payload: any = {
       '@reply': 'yes',
@@ -1060,7 +1062,9 @@ export class HeroService {
             stage: data.stage || 'Applied',
             temp1: data.temp1 || '',
             temp2: data.temp2 || '',
-            temp3: data.temp3 || ''
+            temp3: data.temp3 || '',
+            temp4: data.temp4 || '',
+            temp5: data.temp5 || ''
           }
         }
       }

@@ -1968,9 +1968,29 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     expectedSalary: '',
     relevantSkills: '',
     preferredLocation: '',
+    currentCtc: '',
+    noticePeriod: '',
+    willingToRelocate: false,
+    applicationSource: '',
     hasReferral: false,
     referralEmployeeId: ''
   };
+
+  // Source options for how the candidate found the job
+  applicationSourceOptions: string[] = [
+    'LinkedIn',
+    'Career Portal',
+    'Naukri',
+    'Indeed',
+    'Glassdoor',
+    'Company Website',
+    'Campus Recruitment',
+    'Job Fair',
+    'Social Media',
+    'Newspaper/Print Ad',
+    'Employee Referral',
+    'Other'
+  ];
 
   // Available locations for the selected job (parsed from job's location field)
   candidateJobLocations: string[] = [];
@@ -2101,7 +2121,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
   openAddCandidateModal() {
     this.showAddCandidateModal = true;
-    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', hasReferral: false, referralEmployeeId: '' };
+    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', currentCtc: '', noticePeriod: '', willingToRelocate: false, applicationSource: '', hasReferral: false, referralEmployeeId: '' };
     this.candidateDuplicateCheck = 'idle';
     this.existingCandidateData = null;
     this.candidateFormErrors = {};
@@ -2113,7 +2133,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
   closeAddCandidateModal() {
     this.showAddCandidateModal = false;
-    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', hasReferral: false, referralEmployeeId: '' };
+    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', currentCtc: '', noticePeriod: '', willingToRelocate: false, applicationSource: '', hasReferral: false, referralEmployeeId: '' };
     this.candidateDuplicateCheck = 'idle';
     this.existingCandidateData = null;
     this.candidateFormErrors = {};
@@ -2136,6 +2156,10 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     this.newCandidateForm.preferredLocation = '';
     this.newCandidateForm.expectedSalary = '';
     this.newCandidateForm.relevantSkills = '';
+    this.newCandidateForm.currentCtc = '';
+    this.newCandidateForm.noticePeriod = '';
+    this.newCandidateForm.willingToRelocate = false;
+    this.newCandidateForm.applicationSource = '';
     this.newCandidateForm.hasReferral = false;
     this.newCandidateForm.referralEmployeeId = '';
 
@@ -2314,6 +2338,12 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       if (this.newCandidateForm.jr_id) {
         this.resumeUploadProgress = 'Assigning candidate to job...';
         try {
+          const extraData = {
+            currentCtc: this.newCandidateForm.currentCtc || '',
+            experience: this.newCandidateForm.experience || '',
+            noticePeriod: this.newCandidateForm.noticePeriod || '',
+            willingToRelocate: this.newCandidateForm.willingToRelocate || false
+          };
           await this.heroService.updateCandidateJobApplication({
             candidate_id: candidateId,
             jr_id: this.newCandidateForm.jr_id,
@@ -2321,7 +2351,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
             stage: 'applied',
             temp1: this.newCandidateForm.expectedSalary || name,
             temp2: this.newCandidateForm.relevantSkills || '',
-            temp3: this.newCandidateForm.preferredLocation || ''
+            temp3: this.newCandidateForm.preferredLocation || '',
+            temp4: JSON.stringify(extraData),
+            temp5: this.newCandidateForm.applicationSource || ''
           });
           console.log('[HrPanel] Assigned candidate', candidateId, 'to job', this.newCandidateForm.jr_id);
 
