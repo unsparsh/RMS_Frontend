@@ -102,7 +102,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
   delegateHrReason = '';
   isHrDelegating = false;
 
-  constructor(private heroService: HeroService, private auth: AuthService, private router: Router, private http: HttpClient) {}
+  constructor(private heroService: HeroService, private auth: AuthService, private router: Router, private http: HttpClient) { }
 
   // Hiring Trend Chart
   @ViewChild('hiringChartCanvas') set setHiringChartCanvas(content: ElementRef) {
@@ -123,10 +123,10 @@ export class HrPanelComponent implements OnInit, OnDestroy {
   renderHiringChart() {
     if (!this.hiringChartCanvas) return;
     const ctx = this.hiringChartCanvas.nativeElement.getContext('2d');
-    
+
     let labels: string[] = [];
     let data: number[] = [];
-    
+
     const now = new Date();
 
     if (this.chartView === 'weekly') {
@@ -149,19 +149,19 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         labels.push(d.toLocaleString('default', { month: 'short' }));
       }
       this.candidates.forEach(c => {
-         if (!c.appliedDate) return;
-         const d = new Date(c.appliedDate);
-         const monthDiff = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
-         if (monthDiff >= 0 && monthDiff < 6) {
-            data[5 - monthDiff]++;
-         }
+        if (!c.appliedDate) return;
+        const d = new Date(c.appliedDate);
+        const monthDiff = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth();
+        if (monthDiff >= 0 && monthDiff < 6) {
+          data[5 - monthDiff]++;
+        }
       });
     }
 
     if (this.hiringChart) {
       this.hiringChart.destroy();
     }
-    
+
     this.hiringChart = new Chart(ctx, {
       type: 'line',
       data: {
@@ -185,11 +185,11 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           legend: { display: false }
         },
         scales: {
-          y: { 
-            beginAtZero: true, 
+          y: {
+            beginAtZero: true,
             suggestedMax: 25,
             ticks: { stepSize: 5, precision: 0 },
-            grid: { color: '#E2E8F0' } 
+            grid: { color: '#E2E8F0' }
           },
           x: { grid: { display: false } }
         }
@@ -237,7 +237,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
     try {
       const resp = await this.heroService.getEmployees();
-      
+
       // Try parsing as 'employee' first, then 'tuple'
       let arr = this.heroService.xmltojson(resp, 'employee');
       if (!arr) {
@@ -256,7 +256,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       console.log('[HrPanel] resolveLoggedInUser: total employees found:', arr.length);
 
       const loginId = emailOrId.toLowerCase();
-      const me = arr.find((e: any) => 
+      const me = arr.find((e: any) =>
         (this.getExt(e.email) || '').toLowerCase() === loginId ||
         (this.getExt(e.employee_id) || '').toLowerCase() === loginId ||
         (this.getExt(e.employee_name) || '').toLowerCase() === loginId
@@ -465,6 +465,26 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     return this.jobsList.filter(j => ['OPEN', 'ACTIVE', 'APPROVED'].includes(j.status?.toUpperCase())).length;
   }
 
+  // Cached active jobs list to avoid creating new arrays on every change detection cycle
+  private _activeJobsListCache: any[] = [];
+
+  get activeJobsList() {
+    return this._activeJobsListCache;
+  }
+
+  private recomputeActiveJobsList() {
+    this._activeJobsListCache = this.jobsList
+      .filter(j => ['ACTIVE'].includes((j.status || '').toUpperCase()))
+      .map(j => ({
+        id: j.id || j.jr_id || '',
+        title: j.title || j.job_title || 'Untitled',
+        department: j.department || '',
+        location: j.location || '',
+        status: j.status || '',
+        raw: j.raw || j
+      }));
+  }
+
   get dashboardActiveCandidates(): number {
     return this.candidates.filter(c => !['rejected', 'joined', 'revoked', 'withdrawn'].includes(c.stage)).length;
   }
@@ -482,24 +502,24 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     return this.candidates.filter(c => !['rejected', 'revoked', 'withdrawn'].includes(c.stage));
   }
 
-  get funnelAppliedCount() { 
-    return this.activeFunnelCandidates.length; 
+  get funnelAppliedCount() {
+    return this.activeFunnelCandidates.length;
   }
-  
-  get funnelScreenedCount() { 
-    return this.activeFunnelCandidates.filter(c => c.stage !== 'applied').length; 
+
+  get funnelScreenedCount() {
+    return this.activeFunnelCandidates.filter(c => c.stage !== 'applied').length;
   }
-  
-  get funnelInterviewingCount() { 
-    return this.activeFunnelCandidates.filter(c => c.stage !== 'applied' && c.stage !== 'screened').length; 
+
+  get funnelInterviewingCount() {
+    return this.activeFunnelCandidates.filter(c => c.stage !== 'applied' && c.stage !== 'screened').length;
   }
-  
-  get funnelOfferedCount() { 
-    return this.activeFunnelCandidates.filter(c => ['offered', 'joined'].includes(c.stage)).length; 
+
+  get funnelOfferedCount() {
+    return this.activeFunnelCandidates.filter(c => ['offered', 'joined'].includes(c.stage)).length;
   }
-  
-  get funnelJoinedCount() { 
-    return this.activeFunnelCandidates.filter(c => c.stage === 'joined').length; 
+
+  get funnelJoinedCount() {
+    return this.activeFunnelCandidates.filter(c => c.stage === 'joined').length;
   }
 
   get funnelAppliedWidth() { return 100; }
@@ -898,7 +918,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       scheduled_time: '',
       meeting_link: ''
     };
-    
+
     // Load jobs and employees in parallel
     await Promise.all([
       this.loadJobsForInterview(),
@@ -911,9 +931,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       const resp = await this.heroService.getJobRequisitions();
       const jobData = this.heroService.xmltojson(resp, 'job_requisition');
       const jobsArray = jobData ? (Array.isArray(jobData) ? jobData : [jobData]) : [];
-      
+
       const ext = (field: any) => field?.text || field?.['#text'] || field || '';
-      
+
       this.jobsList = jobsArray.map((j: any) => {
         const record = j.old || j.new || j;
         return {
@@ -925,7 +945,8 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           raw: record
         };
       }).filter((j: any) => j.jr_id);
-      
+      this.recomputeActiveJobsList();
+
       console.log('[HrPanel] Loaded jobs for interview:', this.jobsList);
     } catch (e) {
       console.error('[HrPanel] Error loading jobs:', e);
@@ -938,9 +959,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       const resp = await this.heroService.getEmployees();
       const empData = this.heroService.xmltojson(resp, 'tuple');
       const empArray = empData ? (Array.isArray(empData) ? empData : [empData]) : [];
-      
+
       const ext = (field: any) => field?.text || field?.['#text'] || field || '';
-      
+
       this.employeesList = empArray.map((e: any) => {
         const record = e.old?.employee || e.new?.employee || e.employee || e;
         return {
@@ -952,7 +973,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           raw: record
         };
       }).filter((e: any) => e.employee_id);
-      
+
       console.log('[HrPanel] Loaded employees:', this.employeesList);
     } catch (e) {
       console.error('[HrPanel] Error loading employees:', e);
@@ -967,14 +988,14 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       this.selectedCandidateIds = [];
       return;
     }
-    
+
     this.isLoadingCandidates = true;
     try {
       const [resp, candidatesResp] = await Promise.all([
         this.heroService.getCandidatesForJob(this.selectedJobId),
         this.heroService.getCandidates()
       ]);
-      
+
       // Build candidate map for names
       const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
       const candArr = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
@@ -993,9 +1014,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
       const appData = this.heroService.xmltojson(resp, 'tuple');
       const appArray = appData ? (Array.isArray(appData) ? appData : [appData]) : [];
-      
+
       const ext = (field: any) => field?.text || field?.['#text'] || field || '';
-      
+
       this.jobCandidates = appArray.map((a: any) => {
         const record = a.old?.candidate_job_application || a.new?.candidate_job_application || a.candidate_job_application || a;
         const candId = ext(record.candidate_id);
@@ -1003,7 +1024,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         const name = candInfo.name || ext(record.candidate_name) || candId || 'Unknown';
         const nameParts = name.split(' ');
         const initials = nameParts.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
-        
+
         return {
           application_id: ext(record.application_id),
           candidate_id: candId,
@@ -1017,7 +1038,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           raw: record
         };
       }).filter((c: any) => c.application_id);
-      
+
       this.selectedCandidateIds = [];
       console.log('[HrPanel] Loaded candidates for job:', this.jobCandidates);
     } catch (e) {
@@ -1104,7 +1125,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
           // Extract the created interview_id from response
           const interviewId = this.heroService.xmltojson(interviewResp, 'interview_id');
-          
+
           if (!interviewId) {
             console.warn('[HrPanel] No interview_id returned for candidate:', candidateId);
             errorCount++;
@@ -1476,7 +1497,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     if (this.editingJobId) {
       // Setup payload with modified_at
       const updatedData = { ...this.requisition, modified_at: new Date().toISOString() };
-      
+
       this.heroService.updateJobRequisition(this.editingJobId, updatedData)
         .then((response: any) => {
           console.log('Job Requisition updated successfully:', response);
@@ -1651,10 +1672,10 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     }
     const candidateInterviews = this.allInterviews.filter((i: any) => i.candidate_id === candidateId);
     if (!candidateInterviews.length) return { feedback: 'Pending', rating: 'N/A', technicalSkills: '', communicationSkills: '', culturalFit: '', anotherInterviewRequired: '', panels: [] };
-    
+
     // Sort interviews by date descending
     candidateInterviews.sort((a: any, b: any) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
-    
+
     for (const interview of candidateInterviews) {
       const panels = this.getPanelsForInterview(interview.interview_id);
       const submitted = panels.filter((p: any) => p.feedback && p.rating);
@@ -1849,7 +1870,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         this.draggedCandidate = null;
         return;
       }
-      
+
       const validationError = this.validateInterviewStageProgression(this.draggedCandidate, toStageId);
       if (validationError) {
         this.showToast(validationError, 'error');
@@ -1871,10 +1892,10 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     const currentRoundNumber = this.selectedCandidate
       ? this.getRoundNumberFromStage(this.selectedCandidate?.stage || '')
       : Math.max(
-          ...this.getVisiblePipelineStages()
-            .filter(stage => this.isInterviewStageId(stage.id))
-            .map(stage => this.getRoundNumberFromStage(stage.id) || 1)
-        );
+        ...this.getVisiblePipelineStages()
+          .filter(stage => this.isInterviewStageId(stage.id))
+          .map(stage => this.getRoundNumberFromStage(stage.id) || 1)
+      );
     const nextRoundNumber = (currentRoundNumber || 1) + 1;
     const newRoundNumber = nextRoundNumber;
     const newStageId = `interviewing${newRoundNumber}`;
@@ -1918,6 +1939,444 @@ export class HrPanelComponent implements OnInit, OnDestroy {
   onDragEnd() {
     this.draggedCandidate = null;
     this.dragOverStage = '';
+  }
+
+  // --- Add Candidate Modal ---
+  showAddCandidateModal = false;
+  isSubmittingCandidate = false;
+  candidateDuplicateCheck: 'idle' | 'checking' | 'found' | 'not_found' = 'idle';
+  existingCandidateData: any = null;
+  private emailCheckTimeout: any = null;
+
+  // Validation error messages
+  candidateFormErrors: { name?: string; email?: string; phone?: string; resume?: string } = {};
+
+  // Resume upload state
+  candidateResumeFile: File | null = null;
+  candidateResumeFileName = '';
+  isUploadingResume = false;
+  resumeUploadProgress = '';
+
+  newCandidateForm: any = {
+    name: '',
+    email: '',
+    phone: '',
+    experience: '',
+    skills: '',
+    jr_id: '',
+    // Job application fields (used when a job is selected)
+    expectedSalary: '',
+    relevantSkills: '',
+    preferredLocation: '',
+    hasReferral: false,
+    referralEmployeeId: ''
+  };
+
+  // Available locations for the selected job (parsed from job's location field)
+  candidateJobLocations: string[] = [];
+
+  // --- Validation Helpers ---
+  private readonly EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  private readonly PHONE_REGEX = /^[+]?[\d\s\-()]{7,15}$/;
+
+  isValidEmail(email: string): boolean {
+    return this.EMAIL_REGEX.test(email.trim());
+  }
+
+  isValidPhone(phone: string): boolean {
+    if (!phone || !phone.trim()) return true; // Phone is optional
+    return this.PHONE_REGEX.test(phone.trim());
+  }
+
+  validateCandidateForm(): boolean {
+    this.candidateFormErrors = {};
+    let isValid = true;
+
+    // Name validation
+    const name = (this.newCandidateForm.name || '').trim();
+    if (!name) {
+      this.candidateFormErrors.name = 'Full name is required.';
+      isValid = false;
+    } else if (name.length < 2) {
+      this.candidateFormErrors.name = 'Name must be at least 2 characters.';
+      isValid = false;
+    } else if (name.length > 100) {
+      this.candidateFormErrors.name = 'Name must not exceed 100 characters.';
+      isValid = false;
+    }
+
+    // Email validation
+    const email = (this.newCandidateForm.email || '').trim();
+    if (!email) {
+      this.candidateFormErrors.email = 'Email address is required.';
+      isValid = false;
+    } else if (!this.isValidEmail(email)) {
+      this.candidateFormErrors.email = 'Please enter a valid email address (e.g. name@domain.com).';
+      isValid = false;
+    }
+
+    // Phone validation
+    const phone = (this.newCandidateForm.phone || '').trim();
+    if (phone && !this.isValidPhone(phone)) {
+      this.candidateFormErrors.phone = 'Please enter a valid phone number (7-15 digits, may include +, spaces, hyphens).';
+      isValid = false;
+    }
+
+    // Resume validation (only for new candidates)
+    if (this.candidateResumeFile) {
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedExtensions = ['.pdf', '.doc', '.docx'];
+      const fileExt = '.' + (this.candidateResumeFile.name.split('.').pop()?.toLowerCase() || '');
+      if (!allowedTypes.includes(this.candidateResumeFile.type) && !allowedExtensions.includes(fileExt)) {
+        this.candidateFormErrors.resume = 'Only PDF, DOC and DOCX files are allowed.';
+        isValid = false;
+      } else if (this.candidateResumeFile.size > 5 * 1024 * 1024) {
+        this.candidateFormErrors.resume = 'Resume file must be under 5 MB.';
+        isValid = false;
+      }
+    }
+
+    return isValid;
+  }
+
+  // --- Resume File Handling ---
+  onCandidateResumeSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.handleCandidateResumeFile(input.files[0]);
+    }
+  }
+
+  onCandidateResumeDragOver(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  onCandidateResumeDrop(event: DragEvent) {
+    event.preventDefault();
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.handleCandidateResumeFile(files[0]);
+    }
+  }
+
+  handleCandidateResumeFile(file: File) {
+    const allowedExtensions = ['.pdf', '.doc', '.docx'];
+    const fileExt = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!allowedExtensions.includes(fileExt)) {
+      this.candidateFormErrors.resume = 'Only PDF, DOC and DOCX files are allowed.';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.candidateFormErrors.resume = 'Resume file must be under 5 MB.';
+      return;
+    }
+    this.candidateResumeFile = file;
+    this.candidateResumeFileName = file.name;
+    this.candidateFormErrors.resume = undefined;
+  }
+
+  removeCandidateResume() {
+    this.candidateResumeFile = null;
+    this.candidateResumeFileName = '';
+    this.candidateFormErrors.resume = undefined;
+  }
+
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        resolve(dataUrl.substring(dataUrl.indexOf(',') + 1));
+      };
+      reader.onerror = err => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  getCandidateResumeFileSize(): string {
+    if (!this.candidateResumeFile) return '';
+    const sizeKB = this.candidateResumeFile.size / 1024;
+    return sizeKB > 1024 ? (sizeKB / 1024).toFixed(1) + ' MB' : sizeKB.toFixed(1) + ' KB';
+  }
+
+  openAddCandidateModal() {
+    this.showAddCandidateModal = true;
+    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', hasReferral: false, referralEmployeeId: '' };
+    this.candidateDuplicateCheck = 'idle';
+    this.existingCandidateData = null;
+    this.candidateFormErrors = {};
+    this.candidateResumeFile = null;
+    this.candidateResumeFileName = '';
+    this.resumeUploadProgress = '';
+    this.candidateJobLocations = [];
+  }
+
+  closeAddCandidateModal() {
+    this.showAddCandidateModal = false;
+    this.newCandidateForm = { name: '', email: '', phone: '', experience: '', skills: '', jr_id: '', expectedSalary: '', relevantSkills: '', preferredLocation: '', hasReferral: false, referralEmployeeId: '' };
+    this.candidateDuplicateCheck = 'idle';
+    this.existingCandidateData = null;
+    this.candidateFormErrors = {};
+    this.candidateResumeFile = null;
+    this.candidateResumeFileName = '';
+    this.resumeUploadProgress = '';
+    this.candidateJobLocations = [];
+    if (this.emailCheckTimeout) {
+      clearTimeout(this.emailCheckTimeout);
+      this.emailCheckTimeout = null;
+    }
+  }
+
+  /**
+   * Called when HR selects a job from the dropdown.
+   * Parses available locations from the job's location field.
+   */
+  onCandidateJobSelect() {
+    this.candidateJobLocations = [];
+    this.newCandidateForm.preferredLocation = '';
+    this.newCandidateForm.expectedSalary = '';
+    this.newCandidateForm.relevantSkills = '';
+    this.newCandidateForm.hasReferral = false;
+    this.newCandidateForm.referralEmployeeId = '';
+
+    if (!this.newCandidateForm.jr_id) return;
+
+    const selectedJob = this.jobsList.find((j: any) => (j.jr_id || j.id) === this.newCandidateForm.jr_id);
+    if (selectedJob) {
+      const rawLoc = selectedJob.location || '';
+      this.candidateJobLocations = rawLoc.split(/[,\/]/).map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+    }
+  }
+
+  onCandidateEmailChange() {
+    const email = (this.newCandidateForm.email || '').trim();
+    if (!email || !email.includes('@')) {
+      this.candidateDuplicateCheck = 'idle';
+      this.existingCandidateData = null;
+      return;
+    }
+
+    // Debounce the check by 600ms
+    if (this.emailCheckTimeout) {
+      clearTimeout(this.emailCheckTimeout);
+    }
+    this.emailCheckTimeout = setTimeout(async () => {
+      await this.checkCandidateExists(email);
+    }, 600);
+  }
+
+  private async checkCandidateExists(email: string) {
+    this.candidateDuplicateCheck = 'checking';
+    this.existingCandidateData = null;
+    try {
+      const resp = await this.heroService.getCandidateByEmail(email);
+      let data = this.heroService.xmltojson(resp, 'candidate');
+      if (!data) {
+        data = this.heroService.xmltojson(resp, 'tuple');
+      }
+
+      if (data) {
+        const record = Array.isArray(data) ? data[0] : data;
+        const c = record?.old?.candidate || record?.new?.candidate || record?.candidate || record;
+        const candidateId = this.getExt(c?.candidate_id);
+
+        if (candidateId) {
+          this.existingCandidateData = {
+            candidate_id: candidateId,
+            name: this.getExt(c.name) || this.getExt(c.candidate_name) || '',
+            email: this.getExt(c.email) || '',
+            phone: this.getExt(c.phone) || ''
+          };
+          this.candidateDuplicateCheck = 'found';
+
+          // Auto-fill name if blank
+          if (!this.newCandidateForm.name && this.existingCandidateData.name) {
+            this.newCandidateForm.name = this.existingCandidateData.name;
+          }
+          console.log('[HrPanel] Candidate already exists:', this.existingCandidateData);
+          return;
+        }
+      }
+      this.candidateDuplicateCheck = 'not_found';
+      console.log('[HrPanel] No existing candidate found for email:', email);
+    } catch (e) {
+      console.warn('[HrPanel] Error checking candidate by email:', e);
+      this.candidateDuplicateCheck = 'not_found';
+    }
+  }
+
+  async submitAddCandidate() {
+    // Run full validation
+    if (!this.validateCandidateForm()) {
+      this.showToast('Please fix the highlighted errors before submitting.', 'error');
+      return;
+    }
+
+    const name = (this.newCandidateForm.name || '').trim();
+    const email = (this.newCandidateForm.email || '').trim();
+
+    this.isSubmittingCandidate = true;
+    try {
+      let candidateId = '';
+
+      if (this.candidateDuplicateCheck === 'found' && this.existingCandidateData) {
+        // Candidate already exists – use their ID
+        candidateId = this.existingCandidateData.candidate_id;
+        console.log('[HrPanel] Using existing candidate:', candidateId);
+      } else {
+        // Create new candidate record
+        this.resumeUploadProgress = 'Creating candidate record...';
+        const createResp = await this.heroService.createCandidate(name, email);
+        candidateId = this.heroService.xmltojson(createResp, 'candidate_id') || '';
+
+        if (!candidateId) {
+          // Try to extract from tuple/candidate structure
+          const tuple = this.heroService.xmltojson(createResp, 'tuple');
+          if (tuple) {
+            const c = tuple?.new?.candidate || tuple?.old?.candidate || tuple?.candidate || tuple;
+            candidateId = this.getExt(c?.candidate_id) || '';
+          }
+        }
+
+        if (!candidateId) {
+          this.showToast('Failed to create candidate. No ID returned.', 'error');
+          return;
+        }
+
+        // Update candidate with additional fields (phone, experience, skills)
+        const updatedFields: any = {};
+        if (this.newCandidateForm.phone) updatedFields.phone = this.newCandidateForm.phone.trim();
+        if (this.newCandidateForm.experience) updatedFields.experience = this.newCandidateForm.experience;
+        if (this.newCandidateForm.skills) updatedFields.skills = this.newCandidateForm.skills;
+
+        if (Object.keys(updatedFields).length > 0) {
+          try {
+            await this.heroService.updateCandidate(candidateId, updatedFields);
+          } catch (updateErr) {
+            console.warn('[HrPanel] Could not update candidate extra fields:', updateErr);
+          }
+        }
+
+        // Create candidate_login so they can log in
+        this.resumeUploadProgress = 'Creating candidate login...';
+        try {
+          await this.heroService.createCandidateLogin(name, email, 'TEST', candidateId);
+          console.log('[HrPanel] Candidate login created for:', email);
+        } catch (loginErr) {
+          console.warn('[HrPanel] Could not create candidate login:', loginErr);
+        }
+
+        // Create Cordys organization user
+        this.resumeUploadProgress = 'Creating Cordys user account...';
+        try {
+          await this.heroService.createUser(email, name, 'Candidate_RMS');
+          console.log('[HrPanel] Cordys org user created for:', email, 'with role: Candidate_RMS');
+        } catch (userErr) {
+          console.warn('[HrPanel] Could not create org user (may already exist):', userErr);
+        }
+
+        console.log('[HrPanel] Created new candidate:', candidateId);
+      }
+
+      // Upload resume if file is selected
+      if (this.candidateResumeFile) {
+        this.isUploadingResume = true;
+        this.resumeUploadProgress = 'Uploading resume to server...';
+        try {
+          const base64 = await this.fileToBase64(this.candidateResumeFile);
+          console.log(`[HrPanel] Uploading resume: ${this.candidateResumeFile.name} (${this.candidateResumeFile.size} bytes)`);
+
+          const uploadResp = await this.heroService.uploadDocumentsRMS(this.candidateResumeFile.name, base64);
+
+          let serverPath = '';
+          if (uploadResp instanceof Document) {
+            const el = uploadResp.getElementsByTagName('UploadDocuments_RMS')[0];
+            if (el) serverPath = el.textContent || '';
+          }
+
+          const resumeFileName = serverPath
+            ? (serverPath.split(/[/\\]/).pop() || serverPath)
+            : this.candidateResumeFile.name;
+
+          // Update candidate record with resume_path
+          this.resumeUploadProgress = 'Saving resume to candidate profile...';
+          await this.heroService.updateCandidate(candidateId, { resume_path: resumeFileName });
+          console.log('[HrPanel] Resume uploaded and saved for candidate:', candidateId, '- file:', resumeFileName);
+        } catch (uploadErr) {
+          console.error('[HrPanel] Resume upload failed:', uploadErr);
+          this.showToast('Candidate created but resume upload failed. The candidate can upload it later.', 'error');
+        } finally {
+          this.isUploadingResume = false;
+        }
+      }
+
+      // If a job is selected, create a job application with all details
+      if (this.newCandidateForm.jr_id) {
+        this.resumeUploadProgress = 'Assigning candidate to job...';
+        try {
+          await this.heroService.updateCandidateJobApplication({
+            candidate_id: candidateId,
+            jr_id: this.newCandidateForm.jr_id,
+            application_status: 'APPLIED',
+            stage: 'applied',
+            temp1: this.newCandidateForm.expectedSalary || name,
+            temp2: this.newCandidateForm.relevantSkills || '',
+            temp3: this.newCandidateForm.preferredLocation || ''
+          });
+          console.log('[HrPanel] Assigned candidate', candidateId, 'to job', this.newCandidateForm.jr_id);
+
+          // ===== REFERRAL HANDLING =====
+          if (this.newCandidateForm.hasReferral && this.newCandidateForm.referralEmployeeId?.trim()) {
+            try {
+              const referralResp = await this.heroService.createEmployeeReferral({
+                employee_id: this.newCandidateForm.referralEmployeeId.trim(),
+                candidate_id: candidateId,
+                jr_id: this.newCandidateForm.jr_id,
+                referral_status: 'REFERRED'
+              });
+
+              // Extract the generated referral_id
+              const refData = this.heroService.xmltojson(referralResp, 'employee_referral');
+              let referralId = '';
+              if (refData) {
+                const refObj = Array.isArray(refData) ? refData[0] : refData;
+                referralId = refObj.referral_id || '';
+              }
+
+              // Update candidate record with referral info
+              await this.heroService.updateCandidate(candidateId, {
+                candidate_id: candidateId,
+                has_referral: 'true',
+                referral_id: referralId,
+                source: 'Employee Referral'
+              });
+
+              console.log('[HrPanel] Referral created successfully. Referral ID:', referralId);
+              this.showToast('Referral recorded successfully!', 'success');
+            } catch (refErr) {
+              console.error('[HrPanel] Error creating referral:', refErr);
+              this.showToast('Application submitted but referral could not be recorded.', 'error');
+            }
+          }
+        } catch (appErr) {
+          console.warn('[HrPanel] Failed to create job application:', appErr);
+          this.showToast('Candidate created but failed to assign to job.', 'error');
+        }
+      }
+
+      const actionText = this.candidateDuplicateCheck === 'found'
+        ? (this.newCandidateForm.jr_id ? 'Candidate assigned to job successfully!' : 'Candidate already exists in system.')
+        : (this.newCandidateForm.jr_id ? 'Candidate added and assigned to job successfully!' : 'Candidate added successfully!');
+      this.showToast(actionText, 'success');
+      this.closeAddCandidateModal();
+      this.loadCandidates();
+    } catch (e) {
+      console.error('[HrPanel] Error adding candidate:', e);
+      this.showToast('Failed to add candidate. Please try again.', 'error');
+    } finally {
+      this.isSubmittingCandidate = false;
+      this.resumeUploadProgress = '';
+    }
   }
 
   async loadCandidates() {
@@ -2201,7 +2660,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
       // Count referrals per employee
       const referralCounts = new Map<string, { total: number; successful: number }>();
-      
+
       this.allReferralRecords.forEach((r: any) => {
         const empId = r.employee_id;
         const current = referralCounts.get(empId) || { total: 0, successful: 0 };
@@ -2331,7 +2790,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
   get filteredOffers() {
     if (!this.offerSearchQuery.trim()) return this.offeredCandidatesList;
     const q = this.offerSearchQuery.toLowerCase();
-    return this.offeredCandidatesList.filter(o => 
+    return this.offeredCandidatesList.filter(o =>
       this.getExt(o.raw?.candidate_name).toLowerCase().includes(q) ||
       this.getExt(o.raw?.candidate_id).toLowerCase().includes(q) ||
       this.getExt(o.raw?.jr_id).toLowerCase().includes(q)
@@ -2346,16 +2805,16 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       if (!data) data = this.heroService.xmltojson(resp, 'candidate_job_application');
       if (!data) data = [];
       const arr = Array.isArray(data) ? data : [data];
-      
+
       this.offeredCandidatesList = arr.map((t: any) => {
         const rawApp = t.old?.candidate_job_application || t.new?.candidate_job_application || t.candidate_job_application || t;
         const candidateId = this.getExt(rawApp.candidate_id);
         const jrId = this.getExt(rawApp.jr_id);
-        
+
         // Find matching candidate details if possible
         const matchedCandidate = this.candidates.find((c: any) => c.candidate_id === candidateId) || {};
         const jobTitleFallback = this.getExt(rawApp.job_requisition?.temp2) || matchedCandidate.role || 'Unknown Position';
-        
+
         return {
           raw: {
             ...rawApp,
@@ -2366,7 +2825,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           jr_id: jrId
         };
       }).filter((o: any) => o.raw && Object.keys(o.raw).length > 0);
-      
+
       console.log('[HrPanel] Loaded offered applications:', this.offeredCandidatesList);
     } catch (e) {
       console.error('[HrPanel] Error loading offered applications:', e);
@@ -2379,7 +2838,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     this.selectedOfferCandidate = offerCand;
     const jrId = offerCand.jr_id;
     this.selectedOfferJob = this.jobsList.find(j => j.jr_id === jrId) || { job_title: offerCand.raw.job_title || 'Unknown Position', department: 'Unknown' };
-    
+
     // Reset form
     this.offerForm = {
       offer_date: new Date().toISOString().split('T')[0],
@@ -2391,7 +2850,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       offer_status: 'DRAFT',
       approval_status: 'PENDING'
     };
-    
+
     this.showCreateOfferModal = true;
   }
 
@@ -2406,17 +2865,17 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       this.showToast('Salary is a required field', 'error');
       return;
     }
-    
+
     try {
       const candId = this.selectedOfferCandidate.candidate_id;
       const jrId = this.selectedOfferCandidate.jr_id;
-      
+
       const resp = await this.heroService.createOffer({
         candidate_id: candId,
         jr_id: jrId,
         ...this.offerForm
       });
-      
+
       // Extract the offer_id from the INSERT response so we can UPDATE the same row later
       try {
         const tupleData = this.heroService.xmltojson(resp, 'offer');
@@ -2428,13 +2887,13 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       } catch (parseErr) {
         console.warn('[HrPanel] Could not extract offer_id from response:', parseErr);
       }
-      
+
       this.showToast('Offer details successfully saved!', 'success');
-      
+
       // Close create modal and open preview modal
       this.showCreateOfferModal = false;
       this.showPreviewOfferModal = true;
-      
+
     } catch (e) {
       console.error('Error submitting offer', e);
       this.showToast('Failed to save offer details.', 'error');
@@ -2472,7 +2931,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     try {
       this.showToast('Generating Offer Letter...', 'success');
       const doc = new jsPDF();
-      
+
       let logoBase64 = '';
       try {
         logoBase64 = await this.getBase64ImageFromUrl('assets/images/adnate-logo.png');
@@ -2483,11 +2942,11 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       // --- Thematic Backgrounds ---
       const primaryColor: [number, number, number] = [11, 34, 101]; // #0B2265
       const secondaryColor: [number, number, number] = [0, 196, 240]; // #00C4F0
-      
+
       // Very light background wash
       doc.setFillColor(248, 250, 255);
       doc.rect(0, 0, 210, 297, 'F');
-      
+
       // Top corner geometric branding
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.triangle(0, 0, 90, 0, 0, 60, 'F');
@@ -2499,7 +2958,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       doc.triangle(210, 297, 120, 297, 210, 237, 'F');
       doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
       doc.triangle(210, 237, 210, 232, 202, 237, 'F');
-      
+
       const candidateName = this.getExt(this.selectedOfferCandidate?.raw?.candidate_name) || 'Candidate';
       const jobTitle = this.selectedOfferJob?.job_title || 'Employee';
       const companyName = 'Adnate IT Solutions';
@@ -2521,7 +2980,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       doc.setTextColor(100, 100, 100);
       doc.text('2nd Floor,SLC Building,Amrapali Circle,Vaishali Nagar,Jaipur, Rajasthan, India', 190, 35, { align: 'right' });
       doc.text('Email: hr@adnateitsolutions.com | Phone: +91-800-123-4567', 190, 40, { align: 'right' });
-      
+
       doc.setDrawColor(200, 200, 200);
       doc.line(20, 48, 190, 48);
 
@@ -2529,7 +2988,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text(`Date: ${offerDate}`, 20, 60);
-      
+
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text(`To: ${candidateName}`, 20, 72);
@@ -2540,7 +2999,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       // Body Text
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
-      
+
       const bodyLines = [
         `Dear ${candidateName},`,
         '',
@@ -2566,7 +3025,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       ];
 
       doc.text(bodyLines, 20, 100);
-      
+
       // Footer
       doc.setFontSize(9);
       doc.setTextColor(150, 150, 150);
@@ -2575,7 +3034,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       // Save
       const safeName = candidateName.replace(/\s+/g, '_');
       doc.save(`OfferLetter_${safeName}.pdf`);
-      
+
       this.showToast('Offer Letter PDF generated successfully.', 'success');
     } catch (err) {
       console.error('Error creating offer letter PDF:', err);
@@ -2607,7 +3066,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           ...this.offerForm
         });
       }
-      
+
       this.showToast('Offer status changed to PENDING and sent for approval successfully!', 'success');
       this.createdOfferId = ''; // reset after successful update
       this.closePreviewOfferModal();
@@ -2887,6 +3346,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         });
       }
       console.log('[HrPanel] Loaded jobs:', this.jobsList);
+      this.recomputeActiveJobsList();
       this.calculateApplicantCounts();
     } catch (e) {
       console.error('[HrPanel] Error loading jobs:', e);
@@ -2933,6 +3393,140 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       this.closeDisableJobModal();
       return;
     }
+    this._updateJobStatus(job, 'INACTIVE', `Job ${job.title} marked as INACTIVE.`);
+    this.closeDisableJobModal();
+  }
+
+  closeDisableJobModal() {
+    this.showDisableJobModal = false;
+    this.jobToDisable = null;
+  }
+
+  // --- Pause Job ---
+  showPauseJobModal = false;
+  jobToPause: any = null;
+
+  pauseJob(job: any) {
+    this.jobToPause = job;
+    this.showPauseJobModal = true;
+  }
+
+  confirmPauseJob() {
+    const job = this.jobToPause;
+    if (!job || !job.raw) {
+      this.closePauseJobModal();
+      return;
+    }
+    this._updateJobStatus(job, 'PAUSED', `Job "${job.title}" has been paused.`);
+    this.closePauseJobModal();
+  }
+
+  closePauseJobModal() {
+    this.showPauseJobModal = false;
+    this.jobToPause = null;
+  }
+
+  // --- Resume Job ---
+  showResumeJobModal = false;
+  jobToResume: any = null;
+
+  resumeJob(job: any) {
+    this.jobToResume = job;
+    this.showResumeJobModal = true;
+  }
+
+  confirmResumeJob() {
+    const job = this.jobToResume;
+    if (!job || !job.raw) {
+      this.closeResumeJobModal();
+      return;
+    }
+    this._updateJobStatus(job, 'Open', `Job "${job.title}" has been resumed.`);
+    this.closeResumeJobModal();
+  }
+
+  closeResumeJobModal() {
+    this.showResumeJobModal = false;
+    this.jobToResume = null;
+  }
+
+  // --- Close Job ---
+  showCloseJobModal = false;
+  jobToClose: any = null;
+
+  closeJob(job: any) {
+    this.jobToClose = job;
+    this.showCloseJobModal = true;
+  }
+
+  confirmCloseJob() {
+    const job = this.jobToClose;
+    if (!job || !job.raw) {
+      this.closeCloseJobModal();
+      return;
+    }
+    this._updateJobStatus(job, 'CLOSED', `Job "${job.title}" has been closed.`);
+    this.closeCloseJobModal();
+  }
+
+  closeCloseJobModal() {
+    this.showCloseJobModal = false;
+    this.jobToClose = null;
+  }
+
+  // --- Repost Job ---
+  showRepostJobModal = false;
+  jobToRepost: any = null;
+
+  repostJob(job: any) {
+    this.jobToRepost = job;
+    this.showRepostJobModal = true;
+  }
+
+  confirmRepostJob() {
+    const job = this.jobToRepost;
+    if (!job || !job.raw) {
+      this.closeRepostJobModal();
+      return;
+    }
+    const ext = (field: any) => field?.text || field?.['#text'] || field || '';
+    const updatedData = {
+      job_title: ext(job.raw.job_title),
+      department: ext(job.raw.department),
+      location: ext(job.raw.location),
+      job_description: ext(job.raw.job_description),
+      required_skills: ext(job.raw.required_skills),
+      min_experience: ext(job.raw.min_experience),
+      max_experience: ext(job.raw.max_experience),
+      salary_range: ext(job.raw.salary_range),
+      no_of_positions: ext(job.raw.no_of_positions),
+      priority: ext(job.raw.priority),
+      approval_status: ext(job.raw.approval_status),
+      closing_date: new Date().toISOString().split('T')[0], // Reset posted date to today
+      status: 'Open',
+      modified_at: new Date().toISOString()
+    };
+    this.isLoadingJobs = true;
+    this.heroService.updateJobRequisition(job.id, updatedData)
+      .then(() => {
+        this.showToast(`Job "${job.title}" has been reposted successfully!`, 'success');
+        this.loadJobs();
+      })
+      .catch((error: any) => {
+        console.error('Error reposting job:', error);
+        this.showToast('Failed to repost job.', 'error');
+        this.isLoadingJobs = false;
+      });
+    this.closeRepostJobModal();
+  }
+
+  closeRepostJobModal() {
+    this.showRepostJobModal = false;
+    this.jobToRepost = null;
+  }
+
+  // --- Shared helper to update job status ---
+  private _updateJobStatus(job: any, newStatus: string, successMessage: string) {
     const ext = (field: any) => field?.text || field?.['#text'] || field || '';
     const updatedData = {
       job_title: ext(job.raw.job_title),
@@ -2947,28 +3541,22 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       priority: ext(job.raw.priority),
       approval_status: ext(job.raw.approval_status),
       closing_date: ext(job.raw.closing_date),
-      status: 'ACTIVE/INACTIVE' === 'ACTIVE/INACTIVE' ? 'INACTIVE' : 'INACTIVE', // ensure inactive status
+      status: newStatus,
       modified_at: new Date().toISOString()
     };
     this.isLoadingJobs = true;
     this.heroService.updateJobRequisition(job.id, updatedData)
       .then(() => {
-        this.showToast(`Job ${job.title} marked as INACTIVE.`, 'success');
+        this.showToast(successMessage, 'success');
         this.loadJobs();
       })
       .catch((error: any) => {
-        console.error('Error disabling job requisition:', error);
-        this.showToast('Failed to mark job as INACTIVE.', 'error');
+        console.error(`Error updating job status to ${newStatus}:`, error);
+        this.showToast(`Failed to update job status.`, 'error');
         this.isLoadingJobs = false;
       });
-    
-    this.closeDisableJobModal();
   }
 
-  closeDisableJobModal() {
-    this.showDisableJobModal = false;
-    this.jobToDisable = null;
-  }
 
   get filteredJobs() {
     let filtered = this.jobsList;
@@ -3045,7 +3633,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         this.heroService.getInterviewPanels(),
         this.heroService.getCandidates()
       ]);
-      
+
       // Load candidates for candidate names
       const candData = this.heroService.xmltojson(candidatesResp, 'tuple');
       const candArr = candData ? (Array.isArray(candData) ? candData : [candData]) : [];
@@ -3295,7 +3883,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       if (email) {
         const jobTitle = this.getJobTitleById(this.getExt(candidate.raw?.application?.jr_id)) || 'the position';
         try { await this.heroService.setEmailProfile(); } catch (e) { console.warn('Failed setting email profile', e); }
-        
+
         try {
           await this.heroService.sendMail(
             email,
@@ -3387,39 +3975,39 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
   async generateReport() {
     this.isGeneratingReport = true;
-    
+
     try {
       // Small delay for UI to show loading state
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       const doc = new jsPDF();
-      
+
       // Theme colors
       const primaryColor: [number, number, number] = [11, 34, 101]; // #0B2265
       const secondaryColor: [number, number, number] = [0, 196, 240]; // #00C4F0
-      
+
       // Title
       doc.setFontSize(22);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.text('HR Recruitment Report', 14, 22);
-      
+
       // Subtitle/Date
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
-      
+
       // --- Section 1: Dashboard KPIs ---
       doc.setFontSize(14);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.text('1. Key Performance Indicators', 14, 45);
-      
+
       const kpiData = [
         ['Open Positions', this.dashboardOpenPositions.toString()],
         ['Active Candidates', this.dashboardActiveCandidates.toString()],
         ['Pending Approvals', this.dashboardPendingApprovals.toString()],
         ['Avg Time-to-Hire', this.dashboardTimeToHire]
       ];
-      
+
       autoTable(doc, {
         startY: 50,
         head: [['Metric', 'Value']],
@@ -3428,12 +4016,12 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         headStyles: { fillColor: primaryColor, textColor: 255 },
         styles: { fontSize: 10, cellPadding: 5 }
       });
-      
+
       // --- Section 2: Job Requisitions ---
       const finalY = (doc as any).lastAutoTable.finalY || 50;
       doc.setFontSize(14);
       doc.text('2. Active Job Requisitions', 14, finalY + 15);
-      
+
       const jobData = this.jobsList.map(j => [
         j.jr_id || '-',
         j.job_title || '-',
@@ -3441,7 +4029,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         j.status || '-',
         j.vacancies || '1'
       ]);
-      
+
       autoTable(doc, {
         startY: finalY + 20,
         head: [['JR ID', 'Job Title', 'Department', 'Status', 'Vacancies']],
@@ -3450,13 +4038,13 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         headStyles: { fillColor: secondaryColor, textColor: 255 },
         styles: { fontSize: 9 }
       });
-      
+
       // --- Section 3: Recruitment Pipeline ---
       doc.addPage();
       doc.setFontSize(14);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.text('3. Candidate Pipeline Overview', 14, 22);
-      
+
       const pipelineData = [
         ['Applied', this.funnelAppliedCount.toString()],
         ['Screened', this.funnelScreenedCount.toString()],
@@ -3464,7 +4052,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         ['Offered', this.funnelOfferedCount.toString()],
         ['Joined', this.funnelJoinedCount.toString()]
       ];
-      
+
       autoTable(doc, {
         startY: 28,
         head: [['Pipeline Stage', 'Count']],
@@ -3473,10 +4061,10 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         headStyles: { fillColor: [47, 75, 143], textColor: 255 },
         styles: { fontSize: 10 }
       });
-      
+
       // Save the PDF
       doc.save(`HR_Report_${new Date().getTime()}.pdf`);
-      
+
       this.showToast('Report generated and downloaded successfully.', 'success');
     } catch (error) {
       console.error('Error generating report:', error);
@@ -3514,7 +4102,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
       console.log('[HrPanel] loadMyInterviews - Total panels:', allPanels.length);
       console.log('[HrPanel] loadMyInterviews - loggedInEmployeeId:', this.loggedInEmployeeId);
-      
+
       // Debug: show all unique interviewer_ids
       const uniqueIds = [...new Set(allPanels.map((p: any) => p.interviewer_id))];
       console.log('[HrPanel] loadMyInterviews - All interviewer_ids in panels:', uniqueIds);

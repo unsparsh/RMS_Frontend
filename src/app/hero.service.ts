@@ -1038,6 +1038,7 @@ export class HeroService {
     stage?: string;
     temp1?: string;
     temp2?: string;
+    temp3?: string;
   }): Promise<any> {
     const payload: any = {
       '@reply': 'yes',
@@ -1058,7 +1059,8 @@ export class HeroService {
             applied_at: data.applied_at || new Date().toISOString(),
             stage: data.stage || 'Applied',
             temp1: data.temp1 || '',
-            temp2: data.temp2 || ''
+            temp2: data.temp2 || '',
+            temp3: data.temp3 || ''
           }
         }
       }

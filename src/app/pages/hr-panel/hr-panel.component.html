@@ -422,7 +422,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <tr *ngFor="let job of paginatedJobs" class="hover:bg-gray-50/50 transition duration-150 ease-in-out group" [class.opacity-50]="job.status === 'INACTIVE'">
+                <tr *ngFor="let job of paginatedJobs" class="hover:bg-gray-50/50 transition duration-150 ease-in-out group" [class.opacity-50]="job.status === 'INACTIVE' || job.status === 'CLOSED' || job.status === 'PAUSED'">
                   <td class="px-6 py-4 align-middle">
                     <div class="font-semibold text-gray-900">{{ job.title }}</div>
                     
@@ -439,17 +439,17 @@
                           [class.text-emerald-700]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
                           [class.border-emerald-200]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
                           
-                          [class.bg-rose-100]="job.status === 'Closed' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                          [class.text-rose-700]="job.status === 'Closed' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                          [class.border-rose-200]="job.status === 'Closed' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
+                          [class.bg-rose-100]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
+                          [class.text-rose-700]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
+                          [class.border-rose-200]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
                           
-                          [class.bg-amber-100]="job.status === 'On Hold' || job.status === 'PENDING'"
-                          [class.text-amber-700]="job.status === 'On Hold' || job.status === 'PENDING'"
-                          [class.border-amber-200]="job.status === 'On Hold' || job.status === 'PENDING'">
+                          [class.bg-amber-100]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"
+                          [class.text-amber-700]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"
+                          [class.border-amber-200]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'">
                       <span class="w-1.5 h-1.5 rounded-full"
                             [class.bg-emerald-500]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
-                            [class.bg-rose-500]="job.status === 'Closed' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                            [class.bg-amber-500]="job.status === 'On Hold' || job.status === 'PENDING'"></span>
+                            [class.bg-rose-500]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
+                            [class.bg-amber-500]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"></span>
                       {{ job.status }}
                     </span>
                   </td>
@@ -469,8 +469,28 @@
                       <button class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title="Edit Job" (click)="editJob(job)">
                         <i class="fas fa-edit"></i>
                       </button>
-                      <button class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100" title="Close Job" (click)="deleteJob(job)">
-                        <i class="fas fa-ban"></i>
+                      <!-- Pause / Resume -->
+                      <button *ngIf="job.status !== 'PAUSED' && job.status !== 'CLOSED' && job.status !== 'INACTIVE'" 
+                              class="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-transparent hover:border-amber-100" 
+                              title="Pause Job" (click)="pauseJob(job)">
+                        <i class="fas fa-pause-circle"></i>
+                      </button>
+                      <button *ngIf="job.status === 'PAUSED'" 
+                              class="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100" 
+                              title="Resume Job" (click)="resumeJob(job)">
+                        <i class="fas fa-play-circle"></i>
+                      </button>
+                      <!-- Close Job -->
+                      <button *ngIf="job.status !== 'CLOSED' && job.status !== 'INACTIVE'" 
+                              class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100" 
+                              title="Close Job" (click)="closeJob(job)">
+                        <i class="fas fa-times-circle"></i>
+                      </button>
+                      <!-- Repost Job -->
+                      <button *ngIf="job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'PAUSED'" 
+                              class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" 
+                              title="Repost Job" (click)="repostJob(job)">
+                        <i class="fas fa-redo-alt"></i>
                       </button>
                     </div>
                   </td>
@@ -510,20 +530,77 @@
             </div>
           </div>
           
-          <!-- ===== DISABLE JOB CONFIRMATION MODAL ===== -->
-          <div class="modal-backdrop confirm-backdrop" *ngIf="showDisableJobModal" (click)="closeDisableJobModal()">
+          <!-- ===== PAUSE JOB CONFIRMATION MODAL ===== -->
+          <div class="modal-backdrop confirm-backdrop" *ngIf="showPauseJobModal" (click)="closePauseJobModal()">
             <div class="confirm-dialog" (click)="$event.stopPropagation()">
-              <div class="confirm-icon-wrapper" style="background-color: #FEE2E2; color: #EF4444;">
-                <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+              <div class="confirm-icon-wrapper" style="background-color: #FEF3C7; color: #F59E0B;">
+                <div class="confirm-icon"><i class="fas fa-pause-circle"></i></div>
               </div>
-              <h3 class="confirm-title">Confirm Deactivation</h3>
+              <h3 class="confirm-title">Pause Job Posting</h3>
               <p class="confirm-message">
-                Are you sure you want to mark the job <strong>{{ jobToDisable?.title }}</strong> as INACTIVE?
+                Are you sure you want to pause <strong>{{ jobToPause?.title }}</strong>? This will temporarily hide it from candidates.
               </p>
               <div class="confirm-actions">
-                <button class="btn btn-outline-sm" (click)="closeDisableJobModal()">Cancel</button>
-                <button class="btn btn-primary-blue" style="background-color: #EF4444; border-color: #EF4444;" (click)="confirmDisableJob()">
-                  <i class="fas fa-ban"></i> Deactivate Job
+                <button class="btn btn-outline-sm" (click)="closePauseJobModal()">Cancel</button>
+                <button class="btn btn-primary-blue" style="background-color: #F59E0B; border-color: #F59E0B;" (click)="confirmPauseJob()">
+                  <i class="fas fa-pause-circle"></i> Pause Job
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== RESUME JOB CONFIRMATION MODAL ===== -->
+          <div class="modal-backdrop confirm-backdrop" *ngIf="showResumeJobModal" (click)="closeResumeJobModal()">
+            <div class="confirm-dialog" (click)="$event.stopPropagation()">
+              <div class="confirm-icon-wrapper" style="background-color: #D1FAE5; color: #10B981;">
+                <div class="confirm-icon"><i class="fas fa-play-circle"></i></div>
+              </div>
+              <h3 class="confirm-title">Resume Job Posting</h3>
+              <p class="confirm-message">
+                Resume <strong>{{ jobToResume?.title }}</strong>? It will become visible to candidates again.
+              </p>
+              <div class="confirm-actions">
+                <button class="btn btn-outline-sm" (click)="closeResumeJobModal()">Cancel</button>
+                <button class="btn btn-primary-blue" style="background-color: #10B981; border-color: #10B981;" (click)="confirmResumeJob()">
+                  <i class="fas fa-play-circle"></i> Resume Job
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== CLOSE JOB CONFIRMATION MODAL ===== -->
+          <div class="modal-backdrop confirm-backdrop" *ngIf="showCloseJobModal" (click)="closeCloseJobModal()">
+            <div class="confirm-dialog" (click)="$event.stopPropagation()">
+              <div class="confirm-icon-wrapper" style="background-color: #FEE2E2; color: #EF4444;">
+                <div class="confirm-icon"><i class="fas fa-times-circle"></i></div>
+              </div>
+              <h3 class="confirm-title">Close Job Posting</h3>
+              <p class="confirm-message">
+                Are you sure you want to close <strong>{{ jobToClose?.title }}</strong>? This will permanently close it. You can repost it later.
+              </p>
+              <div class="confirm-actions">
+                <button class="btn btn-outline-sm" (click)="closeCloseJobModal()">Cancel</button>
+                <button class="btn btn-primary-blue" style="background-color: #EF4444; border-color: #EF4444;" (click)="confirmCloseJob()">
+                  <i class="fas fa-times-circle"></i> Close Job
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== REPOST JOB CONFIRMATION MODAL ===== -->
+          <div class="modal-backdrop confirm-backdrop" *ngIf="showRepostJobModal" (click)="closeRepostJobModal()">
+            <div class="confirm-dialog" (click)="$event.stopPropagation()">
+              <div class="confirm-icon-wrapper" style="background-color: #DBEAFE; color: #3B82F6;">
+                <div class="confirm-icon"><i class="fas fa-redo-alt"></i></div>
+              </div>
+              <h3 class="confirm-title">Repost Job</h3>
+              <p class="confirm-message">
+                Repost <strong>{{ jobToRepost?.title }}</strong>? It will be set back to Open and visible to candidates.
+              </p>
+              <div class="confirm-actions">
+                <button class="btn btn-outline-sm" (click)="closeRepostJobModal()">Cancel</button>
+                <button class="btn btn-primary-blue" (click)="confirmRepostJob()">
+                  <i class="fas fa-redo-alt"></i> Repost Job
                 </button>
               </div>
             </div>
@@ -1161,6 +1238,9 @@
               <p class="text-muted">Track and manage all active candidates through the recruitment process.</p>
             </div>
             <div class="header-actions">
+              <button class="btn btn-primary-blue" (click)="openAddCandidateModal()">
+                <i class="fas fa-user-plus"></i> Add Candidate
+              </button>
               <button class="btn btn-outline-sm" (click)="openPipelineOverviewModal()">
                 <i class="fas fa-project-diagram"></i> View Pipeline
               </button>
@@ -1248,6 +1328,222 @@
           <div class="empty-state" *ngIf="activeCandidates.length === 0">
             <i class="fas fa-users-slash"></i>
             <p>No active candidates found matching your search.</p>
+          </div>
+        </div>
+
+        <!-- ===== ADD CANDIDATE MODAL ===== -->
+        <div class="modal-backdrop" *ngIf="showAddCandidateModal" (click)="closeAddCandidateModal()">
+          <div class="modal-dialog" style="max-width: 650px; width: 90vw; max-height: 90vh; overflow-y: auto;" (click)="$event.stopPropagation()">
+            <div class="modal-header-row" style="margin-bottom: 20px;">
+              <h3><i class="fas fa-user-plus text-blue"></i> Add New Candidate</h3>
+              <button class="modal-close-btn" (click)="closeAddCandidateModal()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Duplicate Check Banner -->
+            <div *ngIf="candidateDuplicateCheck === 'checking'" style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-spinner fa-spin" style="color: #0284C7;"></i>
+              <span style="color: #0369A1; font-size: 0.85rem;">Checking if candidate exists...</span>
+            </div>
+            <div *ngIf="candidateDuplicateCheck === 'found'" style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <i class="fas fa-exclamation-triangle" style="color: #D97706;"></i>
+                <span style="color: #92400E; font-weight: 600; font-size: 0.9rem;">Candidate Already Exists!</span>
+              </div>
+              <div style="background: white; border-radius: 6px; padding: 10px 14px; border: 1px solid #FDE68A;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.82rem;">
+                  <div><span style="color: #64748B;">ID:</span> <strong style="color: #1E293B;">{{ existingCandidateData?.candidate_id }}</strong></div>
+                  <div><span style="color: #64748B;">Name:</span> <strong style="color: #1E293B;">{{ existingCandidateData?.name }}</strong></div>
+                  <div><span style="color: #64748B;">Email:</span> <strong style="color: #1E293B;">{{ existingCandidateData?.email }}</strong></div>
+                  <div><span style="color: #64748B;">Phone:</span> <strong style="color: #1E293B;">{{ existingCandidateData?.phone || 'N/A' }}</strong></div>
+                </div>
+              </div>
+              <p style="margin: 8px 0 0; font-size: 0.8rem; color: #92400E;">You can still assign this candidate to a job below.</p>
+            </div>
+            <div *ngIf="candidateDuplicateCheck === 'not_found'" style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-check-circle" style="color: #16A34A;"></i>
+              <span style="color: #166534; font-size: 0.85rem;">No existing candidate found. A new record will be created.</span>
+            </div>
+
+            <form class="req-form" (ngSubmit)="submitAddCandidate()">
+              <!-- Row 1: Name and Email -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label>Full Name <span class="req-star">*</span></label>
+                  <input type="text" class="form-input" placeholder="e.g. Aarav Mehta" [(ngModel)]="newCandidateForm.name" name="candName" required
+                         [style.borderColor]="candidateFormErrors.name ? '#EF4444' : ''">
+                  <div *ngIf="candidateFormErrors.name" style="color: #EF4444; font-size: 0.75rem; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 0.65rem;"></i> {{ candidateFormErrors.name }}
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label>Email <span class="req-star">*</span></label>
+                  <input type="email" class="form-input" placeholder="e.g. aarav@example.com" [(ngModel)]="newCandidateForm.email" name="candEmail" required (ngModelChange)="onCandidateEmailChange()"
+                         [style.borderColor]="candidateFormErrors.email ? '#EF4444' : ''">
+                  <div *ngIf="candidateFormErrors.email" style="color: #EF4444; font-size: 0.75rem; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 0.65rem;"></i> {{ candidateFormErrors.email }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 2: Phone and Experience -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label>Phone</label>
+                  <input type="text" class="form-input" placeholder="e.g. +91 9876543210" [(ngModel)]="newCandidateForm.phone" name="candPhone"
+                         [style.borderColor]="candidateFormErrors.phone ? '#EF4444' : ''">
+                  <div *ngIf="candidateFormErrors.phone" style="color: #EF4444; font-size: 0.75rem; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 0.65rem;"></i> {{ candidateFormErrors.phone }}
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                  <label>Experience</label>
+                  <input type="text" class="form-input" placeholder="e.g. 3 years" [(ngModel)]="newCandidateForm.experience" name="candExp">
+                </div>
+              </div>
+
+              <!-- Row 3: Skills -->
+              <div class="form-group" style="margin-bottom: 12px;">
+                <label>Skills</label>
+                <input type="text" class="form-input" placeholder="e.g. Angular, Java, SQL (comma separated)" [(ngModel)]="newCandidateForm.skills" name="candSkills">
+              </div>
+
+              <!-- Row 4: Resume Upload -->
+              <div class="form-group" style="margin-bottom: 12px;" *ngIf="candidateDuplicateCheck !== 'found'">
+                <label>Resume <span style="color: #94A3B8; font-weight: 400;">(optional – PDF, DOC, DOCX, max 5MB)</span></label>
+                
+                <!-- No file selected: show drag-drop area -->
+                <div *ngIf="!candidateResumeFile"
+                     (dragover)="onCandidateResumeDragOver($event)" 
+                     (drop)="onCandidateResumeDrop($event)"
+                     style="border: 2px dashed #CBD5E1; border-radius: 10px; padding: 24px; text-align: center; background: #F8FAFC; cursor: pointer; transition: all 0.2s ease;"
+                     (click)="resumeFileInput.click()">
+                  <input type="file" #resumeFileInput accept=".pdf,.doc,.docx" style="display: none;" (change)="onCandidateResumeSelect($event)">
+                  <div style="margin-bottom: 8px;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 1.8rem; color: #94A3B8;"></i>
+                  </div>
+                  <p style="margin: 0 0 4px; color: #475569; font-size: 0.85rem; font-weight: 500;">Drag & drop resume here or <span style="color: #0B2265; font-weight: 600; text-decoration: underline;">browse files</span></p>
+                  <p style="margin: 0; color: #94A3B8; font-size: 0.75rem;">Supported: PDF, DOC, DOCX (max 5 MB)</p>
+                </div>
+
+                <!-- File selected: show file info -->
+                <div *ngIf="candidateResumeFile" style="border: 1px solid #BBF7D0; border-radius: 10px; padding: 12px 16px; background: #F0FDF4; display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background: #DCFCE7; display: flex; align-items: center; justify-content: center;">
+                      <i class="fas fa-file-pdf" style="color: #16A34A; font-size: 1rem;" *ngIf="candidateResumeFileName.endsWith('.pdf')"></i>
+                      <i class="fas fa-file-word" style="color: #2563EB; font-size: 1rem;" *ngIf="candidateResumeFileName.endsWith('.doc') || candidateResumeFileName.endsWith('.docx')"></i>
+                      <i class="fas fa-file-alt" style="color: #16A34A; font-size: 1rem;" *ngIf="!candidateResumeFileName.endsWith('.pdf') && !candidateResumeFileName.endsWith('.doc') && !candidateResumeFileName.endsWith('.docx')"></i>
+                    </div>
+                    <div>
+                      <div style="font-size: 0.85rem; font-weight: 600; color: #1E293B;">{{ candidateResumeFileName }}</div>
+                      <div style="font-size: 0.72rem; color: #64748B;">{{ getCandidateResumeFileSize() }}</div>
+                    </div>
+                  </div>
+                  <button type="button" (click)="removeCandidateResume()" style="background: #FEE2E2; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; color: #EF4444; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-times"></i> Remove
+                  </button>
+                </div>
+
+                <div *ngIf="candidateFormErrors.resume" style="color: #EF4444; font-size: 0.75rem; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                  <i class="fas fa-exclamation-circle" style="font-size: 0.65rem;"></i> {{ candidateFormErrors.resume }}
+                </div>
+              </div>
+
+              <!-- Row 5: Assign to Job (optional) -->
+              <div class="form-group" style="margin-bottom: 12px;">
+                <label>Assign to Job <span style="color: #94A3B8; font-weight: 400;">(optional)</span></label>
+                <select class="form-input" [(ngModel)]="newCandidateForm.jr_id" name="candJob" (ngModelChange)="onCandidateJobSelect()">
+                  <option value="">-- No job assignment --</option>
+                  <option *ngFor="let job of activeJobsList" [value]="job.id">{{ job.title }} ({{ job.department }})</option>
+                </select>
+              </div>
+
+              <!-- ===== JOB APPLICATION DETAILS (shown when a job is selected) ===== -->
+              <div *ngIf="newCandidateForm.jr_id" style="animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);">
+                <div style="background: linear-gradient(135deg, #F0F4FF 0%, #E8F7FC 100%); border: 1px solid rgba(0,196,240,0.15); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                    <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #0B2265 0%, #00C4F0 100%); display: flex; align-items: center; justify-content: center;">
+                      <i class="fas fa-file-alt" style="color: white; font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                      <div style="font-weight: 700; font-size: 0.95rem; color: #0B2265;">Application Details</div>
+                      <div style="font-size: 0.75rem; color: #64748B;">Fill in the job application information for this candidate</div>
+                    </div>
+                  </div>
+
+                  <!-- Preferred Location -->
+                  <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Preferred Location</label>
+                    <select class="form-input" [(ngModel)]="newCandidateForm.preferredLocation" name="candPrefLoc">
+                      <option value="" disabled selected>Select location</option>
+                      <option *ngIf="candidateJobLocations.length === 0" value="N/A" disabled>No locations specified for this job</option>
+                      <option *ngFor="let loc of candidateJobLocations" [value]="loc">{{ loc }}</option>
+                    </select>
+                  </div>
+
+                  <!-- Expected Salary -->
+                  <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Expected Salary (Annual)</label>
+                    <input type="text" class="form-input" placeholder="e.g. ₹ 15,00,000" [(ngModel)]="newCandidateForm.expectedSalary" name="candSalary">
+                  </div>
+
+                  <!-- Relevant Skills -->
+                  <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Relevant Skills for this Role</label>
+                    <textarea class="form-input" rows="3" placeholder="Briefly describe the candidate's relevant skills for this role..." [(ngModel)]="newCandidateForm.relevantSkills" name="candRelSkills" style="resize: none;"></textarea>
+                  </div>
+
+                  <!-- Referral Section -->
+                  <div style="margin-top: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: white; border-radius: 10px; border: 1px solid #E2E8F0;">
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, #0B2265 0%, #00C4F0 100%); display: flex; align-items: center; justify-content: center;">
+                          <i class="fas fa-users" style="color: white; font-size: 0.8rem;"></i>
+                        </div>
+                        <div>
+                          <div style="font-size: 0.85rem; font-weight: 600; color: #1E293B;">Employee Referral</div>
+                          <div style="font-size: 0.72rem; color: #94A3B8;">Was this candidate referred by an employee?</div>
+                        </div>
+                      </div>
+                      <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" [(ngModel)]="newCandidateForm.hasReferral" name="candHasReferral" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;">
+                        <div style="width: 44px; height: 24px; border-radius: 12px; transition: all 0.3s ease; position: relative;"
+                             [style.background]="newCandidateForm.hasReferral ? 'linear-gradient(135deg, #0B2265, #00C4F0)' : '#CBD5E1'">
+                          <div style="width: 20px; height: 20px; border-radius: 50%; background: white; position: absolute; top: 2px; transition: all 0.3s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"
+                               [style.left]="newCandidateForm.hasReferral ? '22px' : '2px'"></div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <!-- Referral Employee ID (shown when referral is checked) -->
+                    <div *ngIf="newCandidateForm.hasReferral" style="margin-top: 10px; animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+                      <div class="form-group" style="margin-bottom: 0;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Referring Employee ID</label>
+                        <div style="position: relative;">
+                          <i class="fas fa-id-badge" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.85rem;"></i>
+                          <input type="text" class="form-input" placeholder="e.g. EMP001" [(ngModel)]="newCandidateForm.referralEmployeeId" name="candRefEmpId" style="padding-left: 36px;">
+                        </div>
+                        <span style="font-size: 0.72rem; color: #94A3B8; margin-top: 4px; display: block;">Enter the Employee ID of the person who referred this candidate</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Progress Indicator -->
+              <div *ngIf="isSubmittingCandidate && resumeUploadProgress" style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-spinner fa-spin" style="color: #0284C7;"></i>
+                <span style="color: #0369A1; font-size: 0.85rem; font-weight: 500;">{{ resumeUploadProgress }}</span>
+              </div>
+
+              <!-- Actions -->
+              <div class="form-actions mt-4" style="display: flex; gap: 15px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline-sm" (click)="closeAddCandidateModal()" [disabled]="isSubmittingCandidate">Cancel</button>
+                <button type="submit" class="btn btn-primary-blue" [disabled]="isSubmittingCandidate || !newCandidateForm.name || !newCandidateForm.email">
+                  <i class="fas fa-spinner fa-spin" *ngIf="isSubmittingCandidate"></i>
+                  {{ isSubmittingCandidate ? 'Processing...' : (candidateDuplicateCheck === 'found' && newCandidateForm.jr_id ? 'Assign to Job' : 'Add Candidate') }}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 
