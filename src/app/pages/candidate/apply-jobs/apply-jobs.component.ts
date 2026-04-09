@@ -94,7 +94,7 @@ export class ApplyJobsComponent implements OnInit {
               applicationStatus: '',
               isRevoked: false
             };
-          }).filter((j: any) => j.id && j.type?.toLowerCase() === 'active'); // Filter for Active marks
+          }).filter((j: any) => j.id && j.type?.toUpperCase() === 'ACTIVE'); // Only show ACTIVE jobs to candidates
 
           const candidateId = this.authService.getCandidateId();
           if (candidateId) {

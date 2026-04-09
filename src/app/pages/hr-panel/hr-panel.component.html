@@ -435,21 +435,21 @@
                   </td>
                   <td class="px-6 py-4 align-middle">
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm border"
-                          [class.bg-emerald-100]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
-                          [class.text-emerald-700]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
-                          [class.border-emerald-200]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
+                          [class.bg-emerald-100]="job.status === 'ACTIVE'"
+                          [class.text-emerald-700]="job.status === 'ACTIVE'"
+                          [class.border-emerald-200]="job.status === 'ACTIVE'"
                           
-                          [class.bg-rose-100]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                          [class.text-rose-700]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                          [class.border-rose-200]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
+                          [class.bg-rose-100]="job.status === 'CLOSED' || job.status === 'INACTIVE'"
+                          [class.text-rose-700]="job.status === 'CLOSED' || job.status === 'INACTIVE'"
+                          [class.border-rose-200]="job.status === 'CLOSED' || job.status === 'INACTIVE'"
                           
-                          [class.bg-amber-100]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"
-                          [class.text-amber-700]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"
-                          [class.border-amber-200]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'">
+                          [class.bg-amber-100]="job.status === 'PENDING' || job.status === 'PAUSED'"
+                          [class.text-amber-700]="job.status === 'PENDING' || job.status === 'PAUSED'"
+                          [class.border-amber-200]="job.status === 'PENDING' || job.status === 'PAUSED'">
                       <span class="w-1.5 h-1.5 rounded-full"
-                            [class.bg-emerald-500]="job.status === 'Open' || job.status === 'APPROVED' || job.status === 'ACTIVE'"
-                            [class.bg-rose-500]="job.status === 'Closed' || job.status === 'CLOSED' || job.status === 'INACTIVE' || job.status === 'REJECTED'"
-                            [class.bg-amber-500]="job.status === 'On Hold' || job.status === 'PENDING' || job.status === 'PAUSED'"></span>
+                            [class.bg-emerald-500]="job.status === 'ACTIVE'"
+                            [class.bg-rose-500]="job.status === 'CLOSED' || job.status === 'INACTIVE'"
+                            [class.bg-amber-500]="job.status === 'PENDING' || job.status === 'PAUSED'"></span>
                       {{ job.status }}
                     </span>
                   </td>
@@ -1291,6 +1291,9 @@
                   <i class="fas fa-circle" style="font-size: 6px;"></i> {{ getStageName(candidate.stage) }}
                 </span>
                 <span class="pipeline-dept-badge">{{ candidate.department }}</span>
+                <span *ngIf="candidate.isReferral" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: #EDE9FE; color: #7C3AED; border: 1px solid #DDD6FE;">
+                  <i class="fas fa-user-friends" style="font-size: 7px;"></i> Referral
+                </span>
               </div>
               <div class="pipeline-card-footer">
                 <span class="text-xs text-muted"><i class="far fa-calendar-alt"></i> Applied {{ candidate.appliedDate }}</span>
@@ -1650,6 +1653,9 @@
                     </div>
                     <div class="kanban-card-tags">
                       <span class="kanban-tag" *ngFor="let sk of c.skills.slice(0, 2)">{{ sk }}</span>
+                      <span *ngIf="c.isReferral" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 0.65rem; font-weight: 600; background: #EDE9FE; color: #7C3AED; border: 1px solid #DDD6FE;">
+                        <i class="fas fa-user-friends" style="font-size: 6px;"></i> Referral
+                      </span>
                     </div>
                     <div class="kanban-card-bottom">
                       <span class="kanban-card-date"><i class="far fa-clock"></i> {{ c.appliedDate }}</span>

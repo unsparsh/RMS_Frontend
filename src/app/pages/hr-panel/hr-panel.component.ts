@@ -197,13 +197,14 @@ export class HrPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.resolveLoggedInUser();
     this.loadJobs();
     this.loadInterviewPanels();
-    this.loadCandidates();
     this.loadInterviewsAndPanels();
-    this.loadReferrals();
+    // Load referrals first so allReferralRecords is populated before loadCandidates checks isReferral
+    await this.loadReferrals();
+    this.loadCandidates();
     this.loadOfferedApplications();
     this.loadAllOffers();
     this.startNotificationsPolling();
@@ -462,7 +463,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
 
   // --- Dynamic Dashboard Data ---
   get dashboardOpenPositions(): number {
-    return this.jobsList.filter(j => ['OPEN', 'ACTIVE', 'APPROVED'].includes(j.status?.toUpperCase())).length;
+    return this.jobsList.filter(j => j.status?.toUpperCase() === 'ACTIVE').length;
   }
 
   // Cached active jobs list to avoid creating new arrays on every change detection cycle
@@ -1544,7 +1545,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       no_of_positions: '1',
       priority: 'Medium',
       status: 'PENDING',
-      approval_status: 'Pending',
+      approval_status: 'PENDING',
       closing_date: ''
     };
     this.editingJobId = null;
@@ -2449,6 +2450,21 @@ export class HrPanelComponent implements OnInit, OnDestroy {
         const skillsStr = ext(candidate.skills) || '';
         const skills = skillsStr ? skillsStr.split(',').map((s: string) => s.trim()) : [];
 
+        // Detect application source (temp5) and referral status
+        const applicationSource = ext(app.temp5) || '';
+        const isReferral = applicationSource.toLowerCase() === 'employee referral'
+          || this.allReferralRecords.some((r: any) => r.candidate_id === candidateId);
+
+        // Parse extra application data from temp4 JSON (experience, currentCtc, etc.)
+        let appExperience = '';
+        try {
+          const temp4Raw = ext(app.temp4);
+          if (temp4Raw) {
+            const extraData = JSON.parse(temp4Raw);
+            appExperience = extraData.experience || '';
+          }
+        } catch (e) { /* temp4 not valid JSON, ignore */ }
+
         return {
           application_id: ext(app.application_id),
           candidate_id: candidateId,
@@ -2462,7 +2478,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
           skills: skills,
           email: ext(candidate.email) || '',
           phone: ext(candidate.phone) || '',
-          experience: ext(candidate.experience) || '0 years',
+          experience: appExperience || ext(candidate.experience) || '0 years',
+          isReferral: isReferral,
+          applicationSource: applicationSource,
           raw: { candidate, application: app }
         };
       }).filter((c: any) => c.candidate_id && c.name);
@@ -3365,7 +3383,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
             title: ext(record.job_title),
             department: ext(record.department),
             location: ext(record.location) || 'Remote',
-            status: ext(record.status) || 'Open',
+            status: (ext(record.status) || 'ACTIVE').toUpperCase(),
             applicants: 0,
             datePosted: ext(record.closing_date),
             raw: record
@@ -3404,8 +3422,8 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       salary_range: ext(job.raw.salary_range),
       no_of_positions: ext(job.raw.no_of_positions) || '1',
       priority: ext(job.raw.priority) || 'Medium',
-      status: ext(job.raw.status) || 'Open',
-      approval_status: ext(job.raw.approval_status) || 'PENDING',
+      status: (ext(job.raw.status) || 'ACTIVE').toUpperCase(),
+      approval_status: (ext(job.raw.approval_status) || 'PENDING').toUpperCase(),
       closing_date: ext(job.raw.closing_date)
     };
     this.showToast(`Switched to editing mode for ${job.title}`, 'success');
@@ -3473,7 +3491,7 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       this.closeResumeJobModal();
       return;
     }
-    this._updateJobStatus(job, 'Open', `Job "${job.title}" has been resumed.`);
+    this._updateJobStatus(job, 'ACTIVE', `Job "${job.title}" has been resumed.`);
     this.closeResumeJobModal();
   }
 
@@ -3533,9 +3551,9 @@ export class HrPanelComponent implements OnInit, OnDestroy {
       salary_range: ext(job.raw.salary_range),
       no_of_positions: ext(job.raw.no_of_positions),
       priority: ext(job.raw.priority),
-      approval_status: ext(job.raw.approval_status),
+      approval_status: 'PENDING',  // Reset so it goes for leadership approval again
       closing_date: new Date().toISOString().split('T')[0], // Reset posted date to today
-      status: 'Open',
+      status: 'PENDING',  // Must be PENDING until leadership approves
       modified_at: new Date().toISOString()
     };
     this.isLoadingJobs = true;
